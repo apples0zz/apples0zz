@@ -1,4 +1,1 @@
-- 👋 Hi, I’m @applescs2
-- 👀 I’m interested in gaming and esports!
-- 🌱 I’m currently learning how to code 101 🤦‍♀️ i work with engineers daily and want to learn the terminology!
-- 💞️ I’m looking to collaborate on anything! i want to learn as much as i can :)
+
