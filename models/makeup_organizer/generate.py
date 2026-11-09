@@ -351,9 +351,9 @@ if __name__ == "__main__":
     sticks, _ = tiered_block([[(C(13), 1, ""), (C(17), 1, ""), (C(22), 1, ""), (C(24), 1, ""), (C(26), 1, ""), (C(28), 1, "")],
                               [(R(32, 24), 1, ""), (R(36, 20), 1, ""), (C(34), 1, "")],
                               [(R(46, 34), 1, ""), (R(29, 58), 1, "")]],
-                             width=MOD_W, depth=140, base_h=14.0, step_h=0.0)   # low: fit test only
+                             width=164, depth=140, base_h=14.0, step_h=0.0)   # low & narrow: fit test only
     widths = [13, 15, 18, 22, 32, 38]   # NARS/W7 · most powders · sun club · Glossier quad · TIRTIR · Morphe jar
-    mini, _, mini_d, _ = compact_rack([[("", 40, t)] for t in widths], width=60, depth=200)
+    mini, _, mini_d, _ = compact_rack([[("", 20, t)] for t in widths], width=30, depth=200)   # only thickness matters
     sticks = add_sockets(sticks)   # test the foot press-fit too
     report(sticks, MAT, infill=0.08, name="00_sampler_sticks")
     report(mini, MAT, infill=0.08, name="00_sampler_compact_slots")
@@ -363,10 +363,10 @@ if __name__ == "__main__":
         return m.translate((x - b[0], y - b[1], -b[2]))
     # stack the three pieces front-to-back so they all fit on one 256 mm plate
     sampler = [Part("stick slots", to(sticks, 0, 0), 1),
-               Part("compact slots", to(mini.rotate((0, 0, 90)), 5, 140 + 6), 1),
-               Part("test feet", to(union(*[foot().translate((22 * i, 0, 0)) for i in range(4)]), 5, 140 + 6 + 60 + 6), 1)]
+               Part("compact slots", to(mini.rotate((0, 0, 90)), 0, 140 + 6), 1),
+               Part("test feet", to(union(*[foot().translate((22 * i, 0, 0)) for i in range(4)]), 0, 140 + 6 + 30 + 6), 1)]
     bb = union(*[p.solid for p in sampler]).bounding_box()
-    assert bb[3] - bb[0] <= 250 and bb[4] - bb[1] <= 250, f"sampler doesn't fit the plate: {bb}"
+    assert bb[3] - bb[0] <= 200 and bb[4] - bb[1] <= 200, f"sampler should leave plenty of room on the plate: {bb}"
     print(f"  sampler plate footprint: {bb[3] - bb[0]:.0f} x {bb[4] - bb[1]:.0f} mm")
     export_3mf(OUT / "00_fit_test_sampler.3mf", sampler, separate_objects=True)
     preview(OUT / "00_fit_test_sampler.png", [p.solid for p in sampler])

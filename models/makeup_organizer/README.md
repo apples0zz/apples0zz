@@ -62,7 +62,7 @@ they need no supports, and the feet print separately:
 - The lift also lets air under the sponge cups, so sponges dry from below.
 
 ## Print order
-1. **`00_fit_test_sampler.3mf`** (about 2.5 h, ~125 g). It has one of every stick slot (shallow),
+1. **`00_fit_test_sampler.3mf`** (about 2 h, ~100 g; fits in a 171 × 196 mm area). It has one of every stick slot (shallow),
    4 test feet with sockets to try the press fit, and a mini rack with compact slots of
    17 / 19 / 22 / 26 / 36 / 42 mm. Test it with the NARS blush, the H&M palette, the sun club
    bronzer, the Glossier quad, the TIRTIR and the Morphe jar. If anything is tight or loose,
@@ -92,7 +92,7 @@ Door/lid:   open a little for PLA
 ### Filament & time estimate (with this recipe)
 | File | ≈ PLA | ≈ time |
 |---|---|---|
-| 00 fit test sampler | 125 g | 2.5 h |
+| 00 fit test sampler | 100 g | 2 h |
 | M0 feet ×28 | 18 g | 0.4 h |
 | M1 eyes & lips | 205 g | 4.0 h |
 | M2 cheeks & tubes | 140 g | 2.7 h |
