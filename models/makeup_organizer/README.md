@@ -1,4 +1,4 @@
-# Bathroom makeup organizer: 2 shelves, 6 modules
+# Bathroom makeup organizer: 2 shelves, 5 modules
 
 Shelves: **22.5" × 8.75" measured inside the rims** (572 × 222 mm). Each shelf takes three
 modules of 184 × 216 mm (7.2" × 8.5"), which leaves about ⅜" of play side to side and ¼" front
@@ -6,11 +6,14 @@ to back so they drop in easily. Every module fits one P1S plate. See `spot_map.p
 goes where.
 
 ## Shelf 1: sticks & tubes (stand upright in slots, back rows higher)
-| Module | Holds |
+Slots are packed about 5 mm apart (about 3 mm of plastic between items). Each block is only as deep as
+its rows need and sits against the back of the shelf. That leaves the **right third of shelf 1
+open** for brushes and sponges.
+
+| Module | Holds (front → back) |
 |---|---|
-| **M1 eyes** | 5 mascaras · big beige stick · Glossier brow gel · 4 chunky eye sticks (white pen, Morphe, Skywash + 1 spare) · 12 pencil/liner/brow slots (10 items + 2 spare) |
-| **M2 lips & concealer** | 3 flat tubes (Summer Fridays, Blistex, Cloud Paint) · 4 concealers · 10 gloss/lip slots (9 items + 1 spare) |
-| **M3 cheek sticks & tubes** | 3 liquid blushes/wands · 3 about-face sticks · 2 Fenty hex sticks · Pixi stick · 4 squeeze tubes cap-down |
+| **M1 eyes & lips** (182 mm deep, 86 mm tall at back) | 5 mascaras · beige stick + Glossier brow gel + 4 chunky eye sticks · 10 pencils/liners/brow · 3 flat tubes + 1 gloss · 4 concealers + 2 glosses · 6 glosses (9 lip items in total) |
+| **M2 cheeks & tubes** (156 mm deep, 50 mm tall) | 3 liquid blushes/wands + 2 Fenty hex sticks · 3 about-face + Pixi stick · 5 squeeze tubes cap-down (4 + 1 spare) |
 
 ## Shelf 2: face
 | Module | Holds |
@@ -55,7 +58,7 @@ Earlier I had counted 9 compacts and listed the Charlotte Tilbury twice. The rea
    mini rack with compact slots of 17 / 19 / 22 / 26 / 36 / 42 mm. Test it with the NARS blush,
    the H&M palette, the sun club bronzer, the Glossier quad, the TIRTIR and the Morphe jar. If
    anything is tight or loose, tell me which item and I'll change its number.
-2. Then the six modules, in any order.
+2. Then the five modules, in any order.
 
 ## Bambu Studio recipe (all parts)
 ```
@@ -71,6 +74,6 @@ Door/lid:  open a little for PLA
   get a support wall underneath), which the P1S prints cleanly without supports. Ignore
   the overhang warning in Bambu Studio for these.
 
-Estimated total about 1.2 kg PLA plus the sampler. Bambu Studio shows the exact amount when you slice.
+Estimated total about 0.86 kg PLA plus the sampler (~190 g). Bambu Studio shows the exact amount when you slice.
 
 Regenerate after changing a number: `python3 models/makeup_organizer/generate.py`

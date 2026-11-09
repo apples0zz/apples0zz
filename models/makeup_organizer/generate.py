@@ -42,25 +42,24 @@ def R(w, l):         # rounded-rectangle slot, w across x l deep
 
 
 # rows FRONT -> BACK; each row = list of (shape, count, label)
+SLOT_GAP = 5.0      # plastic between neighbouring slots (≈3 mm after the 1 mm lead-in chamfers)
+ROW_GAP = 5.0       # same between rows; leftover depth becomes a flat ledge at the front
+
 BLOCKS = {
-    "M1_eyes": [
+    "M1_eyes_lips": [
         [(C(28), 5, "mascara")],                               # 5 mascaras
         [(C(28), 1, "big beige stick"), (C(22), 1, "Glossier brow gel"),
          (C(17), 4, "chunky eye stick")],                      # white pen, Morphe, Skywash (+1 spare)
-        [(C(13), 6, "pencil / liner / brow")],                 # Annabelle, LM caviar, CT Forbidden Rose,
-        [(C(13), 6, "pencil / liner / brow")],                 # wnw liner, CT liner, Epic Wear, Black Silk,
-    ],                                                         # kohl, Lip Cheat, brow pen  (10 + 2 spare)
-    "M2_lips_concealer": [
-        [(R(36, 20), 3, "flat tube (Summer Fridays, Blistex, Cloud Paint)")],
-        [(C(24), 4, "concealer")],                             # CG Clean Invisible, Flower, Real Flawless, NARS
-        [(C(22), 5, "gloss / lip / liquid shadow")],           # 9 lip items + 1 spare
-        [(C(22), 5, "gloss / lip / liquid shadow")],
+        [(C(13), 10, "pencil / liner / brow")],                # Annabelle, LM caviar, CT Forbidden Rose, wnw liner,
+                                                               # CT liner, Epic Wear, Black Silk, kohl, Lip Cheat, brow pen
+        [(R(36, 20), 3, "flat tube (Summer Fridays, Blistex, Cloud Paint)"), (C(22), 1, "gloss / lip / liquid shadow")],
+        [(C(24), 4, "concealer"), (C(22), 2, "gloss / lip / liquid shadow")],   # CG, Flower, Real Flawless, NARS
+        [(C(22), 6, "gloss / lip / liquid shadow")],          # 9 lip items in total
     ],
-    "M3_cheek_tubes": [
-        [(C(26), 3, "liquid blush / wand")],                   # elf blush, Rare Beauty, elf Halo Glow wand
-        [(R(32, 24), 3, "about-face stick")],
-        [(C(34), 2, "Fenty hex stick"), (R(46, 34), 1, "Pixi stick")],
-        [(R(29, 58), 4, "squeeze tube, cap down")],            # wnw Impossible, SPF 50, Anua, LM Pure Canvas
+    "M2_cheeks_tubes": [
+        [(C(26), 3, "liquid blush / wand"), (C(34), 2, "Fenty hex stick")],   # elf blush, Rare Beauty, Halo Glow
+        [(R(32, 24), 3, "about-face stick"), (R(46, 34), 1, "Pixi stick")],
+        [(R(29, 58), 5, "squeeze tube, cap down")],            # wnw Impossible, SPF 50, Anua, LM Pure Canvas + 1 spare
     ],
 }
 
@@ -72,24 +71,31 @@ def slot2d(shape):
     return circle2d(w)
 
 
+FRONT_LEDGE = 10.0  # flat strip in front of the first row; the module is only as deep as it needs
+
+
 def tiered_block(rows, width=MOD_W, depth=MOD_D):
-    """Stadium block: each row is a tier STEP_H higher than the one in front."""
+    """Stadium block: each row is a tier STEP_H higher than the one in front. Slots are packed
+    SLOT_GAP apart and centred; rows sit ROW_GAP apart against the back, and any spare depth
+    becomes a flat ledge at the front (handy for setting things down)."""
     row_l = [max(s[0][2] for s in row) for row in rows]
-    need = sum(row_l) + EDGE * (len(rows) + 1)
+    need = sum(row_l) + ROW_GAP * (len(rows) + 1)
     assert need <= depth, f"rows need {need:.0f} mm > {depth}"
-    extra = (depth - need) / len(rows)
+    depth = min(depth, need + FRONT_LEDGE)   # don't print empty ledge: the block sits at the back of the shelf
+    ledge = depth - need
     tiers, cuts, layout = [], [], []
-    y = EDGE
+    y = ledge + ROW_GAP
     for i, (row, L) in enumerate(zip(rows, row_l)):
-        y0 = y - EDGE / 2 if i else 0
+        y0 = y - ROW_GAP / 2 if i else 0
         top = BASE_H + i * STEP_H
         tiers.append(rounded_box(width, depth - y0, top, r=CORNER_R, top_chamfer=0.8).translate((0, y0, 0)))
-        cy = y + extra / 2 + L / 2
+        cy = y + L / 2
         items = [s for s, n, _ in row for _ in range(n)]
         labels = [lab for _, n, lab in row for _ in range(n)]
-        gap_x = (width - sum(s[1] for s in items)) / (len(items) + 1)
-        assert gap_x >= EDGE + 2, f"row {i} too crowded ({gap_x:.1f} mm between slots)"  # +2: lead-in chamfers
-        x = gap_x
+        span = sum(s[1] for s in items) + SLOT_GAP * (len(items) - 1)
+        margin = (width - span) / 2
+        assert margin >= EDGE + 1, f"row {i} too wide ({span:.0f} mm in {width:.0f})"
+        x = margin
         for s, lab in zip(items, labels):
             cx = x + s[1] / 2
             d = min(HOLE_D, top - 2.0)
@@ -97,8 +103,8 @@ def tiered_block(rows, width=MOD_W, depth=MOD_D):
                                         extrude(slot2d(s).offset(1.0), 0.01).translate((cx, cy, top + 0.01))])
             cuts.append(extrude(slot2d(s), d + 1).translate((cx, cy, top - d)) + lead)
             layout.append((s, cx, cy, lab))
-            x += s[1] + gap_x
-        y += L + EDGE + extra
+            x += s[1] + SLOT_GAP
+        y += L + ROW_GAP
     return union(*tiers) - union(*cuts), layout
 
 
@@ -198,13 +204,16 @@ def compact_rack(rows, side=None, width=MOD_W, depth=MOD_D, fit_t=FIT_T):
     return union(*parts), layout, rack_d
 
 
+DEPTHS = {}
+
+
 def spot_map(path, layouts):
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
     from matplotlib.patches import Circle, FancyBboxPatch, Rectangle
 
-    shelves = [("Shelf 1: sticks & tubes", ["M1_eyes", "M2_lips_concealer", "M3_cheek_tubes"]),
+    shelves = [("Shelf 1: sticks & tubes", ["M1_eyes_lips", "M2_cheeks_tubes", None]),
                ("Shelf 2: face", ["M4_bottle_stairs", "M5_thin_compacts", "M6_thick_compacts"])]
     cats, palette = {}, plt.get_cmap("tab20").colors
     fig, axes = plt.subplots(2, 1, figsize=(15, 13.5))
@@ -212,8 +221,12 @@ def spot_map(path, layouts):
         ax.add_patch(Rectangle((0, 0), SHELF_W, SHELF_D, fill=False, lw=2, ls="--", ec="#999"))
         for j, name in enumerate(names):
             ox = (SHELF_W - 3 * MOD_W - 2 * GAP) / 2 + j * (MOD_W + GAP)
-            oy = (SHELF_D - MOD_D) / 2
-            ax.add_patch(FancyBboxPatch((ox, oy), MOD_W, MOD_D, boxstyle="round,pad=0,rounding_size=6",
+            oy = (SHELF_D - MOD_D) / 2 + MOD_D - DEPTHS.get(name, MOD_D)   # pushed to the back
+            if name is None:   # free third of the shelf
+                ax.add_patch(Rectangle((ox, oy), MOD_W, MOD_D, fill=False, ls=":", ec="#999", lw=1.5))
+                ax.text(ox + MOD_W / 2, oy + MOD_D / 2, "open space\n(brushes & sponges)", ha="center", va="center", color="#777")
+                continue
+            ax.add_patch(FancyBboxPatch((ox, oy), MOD_W, DEPTHS.get(name, MOD_D), boxstyle="round,pad=0,rounding_size=6",
                                         fc="#fdf2f8", ec="#db2777", lw=1.5))
             ax.text(ox + MOD_W / 2, SHELF_D + 8, name.replace("_", " "), ha="center", fontsize=11, weight="bold")
             if name == "M4_bottle_stairs":
@@ -287,8 +300,10 @@ if __name__ == "__main__":
                separate_objects=True)
     preview(OUT / "00_fit_test_sampler.png", [sticks, mini.translate((MOD_W + 10, 0, 0))])
 
-    shelf = lambda names: [mods[n].translate(((MOD_W + GAP) * i, 0, 0)) for i, n in enumerate(names)]  # noqa: E731
+    shelf = lambda names: [mods[n].translate(((MOD_W + GAP) * i, MOD_D - mods[n].bounding_box()[4], 0))  # noqa: E731
+                           for i, n in enumerate(names)]
     cols = ["#f9a8d4", "#fbcfe8", "#f472b6"]
-    preview(OUT / "shelf1_preview.png", shelf(["M1_eyes", "M2_lips_concealer", "M3_cheek_tubes"]), colors=cols, elev=35, azim=-75)
+    preview(OUT / "shelf1_preview.png", shelf(["M1_eyes_lips", "M2_cheeks_tubes"]), colors=cols, elev=35, azim=-75)
     preview(OUT / "shelf2_preview.png", shelf(["M4_bottle_stairs", "M5_thin_compacts", "M6_thick_compacts"]), colors=cols, elev=35, azim=-75)
+    DEPTHS.update({n: mods[n].bounding_box()[4] for n in BLOCKS})
     spot_map(OUT / "spot_map.png", layouts)
