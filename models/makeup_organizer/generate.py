@@ -82,7 +82,7 @@ def slot2d(shape):
 FRONT_LEDGE = 10.0  # flat strip in front of the first row; the module is only as deep as it needs
 
 
-def tiered_block(rows, width=MOD_W, depth=MOD_D, base_h=BASE_H, step_h=STEP_H):
+def tiered_block(rows, width=MOD_W, depth=MOD_D, base_h=BASE_H, step_h=STEP_H, through=False):
     """Stadium block: each row is a tier STEP_H higher than the one in front. Slots are packed
     SLOT_GAP apart and centred; rows sit ROW_GAP apart against the back, and any spare depth
     becomes a flat ledge at the front (handy for setting things down)."""
@@ -106,7 +106,7 @@ def tiered_block(rows, width=MOD_W, depth=MOD_D, base_h=BASE_H, step_h=STEP_H):
         x = margin
         for s, lab in zip(items, labels):
             cx = x + s[1] / 2
-            d = min(s[3] or HOLE_D, top - 5.0)   # keep >= 5 mm under every slot (room for the foot sockets)
+            d = top + 1.0 if through else min(s[3] or HOLE_D, top - 5.0)   # keep >= 5 mm under every slot (foot sockets)
             lead = Manifold.batch_hull([extrude(slot2d(s), 0.01).translate((cx, cy, top - 1.0)),
                                         extrude(slot2d(s).offset(1.0), 0.01).translate((cx, cy, top + 0.01))])
             cuts.append(extrude(slot2d(s), d + 1).translate((cx, cy, top - d)) + lead)
@@ -347,29 +347,35 @@ if __name__ == "__main__":
     preview(OUT / "M0_feet.png", feet, elev=40)
     print(f"\nTOTAL ≈ {total:.0f} g PLA")
 
-    # fit-test sampler: every stick slot size + a mini rack with every compact slot thickness
-    sticks, _ = tiered_block([[(C(13), 1, ""), (C(17), 1, ""), (C(22), 1, ""), (C(24), 1, ""), (C(26), 1, ""), (C(28), 1, "")],
-                              [(R(32, 24), 1, ""), (R(36, 20), 1, ""), (C(34), 1, "")],
-                              [(R(46, 34), 1, ""), (R(29, 58), 1, "")]],
-                             width=164, depth=140, base_h=14.0, step_h=0.0)   # low & narrow: fit test only
-    widths = [13, 15, 18, 22, 32, 38]   # NARS/W7 · most powders · sun club · Glossier quad · TIRTIR · Morphe jar
-    mini, _, mini_d, _ = compact_rack([[("", 20, t)] for t in widths], width=30, depth=200)   # only thickness matters
-    sticks = add_sockets(sticks)   # test the foot press-fit too
-    report(sticks, MAT, infill=0.08, name="00_sampler_sticks")
-    report(mini, MAT, infill=0.08, name="00_sampler_compact_slots")
-    print("  compact sampler slot thicknesses (front→back):", [t + FIT_T for t in widths])
+    # fit-test sampler: a flat 3 mm plate with every slot size cut straight through (it only checks
+    # that things FIT through each opening - depth doesn't matter for that), plus a small socket
+    # puck and 4 feet to check the press fit.
+    thin_w = sorted({max(t for _, _, t in r) + FIT_T for r in THIN_RACK} | {THIN_SIDE[2] + FIT_T})
+    thick_w = sorted({max(t for _, _, t in r) + FIT_T + 2 for r in THICK_RACK} - set(thin_w))
+    coupon, _ = tiered_block([[(C(d), 1, "") for d in (13, 17, 22, 24, 26, 28)],
+                              [(C(34), 1, ""), (R(32, 24), 1, ""), (R(36, 20), 1, ""), (R(29, 58), 1, "")],
+                              [(R(46, 34), 1, "")] + [(R(w, 40), 1, "") for w in thin_w],
+                              [(R(w, 40), 1, "") for w in thick_w]],
+                             width=180, depth=230, base_h=3.0, step_h=0.0, through=True)
+    puck = add_sockets(rounded_box(40, 40, 5, r=4))
+    print("  coupon compact slot widths: thin rack", thin_w, "| thick rack", thick_w)
+
     def to(m, x, y):   # move a part so its min corner sits at (x, y)
         b = m.bounding_box()
         return m.translate((x - b[0], y - b[1], -b[2]))
-    # stack the three pieces front-to-back so they all fit on one 256 mm plate
-    sampler = [Part("stick slots", to(sticks, 0, 0), 1),
-               Part("compact slots", to(mini.rotate((0, 0, 90)), 0, 140 + 6), 1),
-               Part("test feet", to(union(*[foot().translate((22 * i, 0, 0)) for i in range(4)]), 0, 140 + 6 + 30 + 6), 1)]
+    cb = coupon.bounding_box()
+    sampler = [Part("fit coupon", to(coupon, 0, 0), 1),
+               Part("socket puck", to(puck, cb[3] - cb[0] + 6, 0), 1),          # beside the coupon
+               Part("test feet", to(union(*[foot().translate((0, 20 * i, 0)) for i in range(4)]),
+                                    cb[3] - cb[0] + 6 + 13, 46), 1)]
+    for p in sampler:
+        report(p.solid, MAT, name="00_" + p.name.replace(" ", "_"), quiet=True)
+        print("  ", p.name, estimate(p.solid, layer=0.28, top_layers=3, bottom_layers=2, infill=0.04, flow_mm3_s=12))
     bb = union(*[p.solid for p in sampler]).bounding_box()
-    assert bb[3] - bb[0] <= 200 and bb[4] - bb[1] <= 200, f"sampler should leave plenty of room on the plate: {bb}"
+    assert bb[3] - bb[0] <= 236 and bb[4] - bb[1] <= 236, f"sampler should leave room on the plate: {bb}"
     print(f"  sampler plate footprint: {bb[3] - bb[0]:.0f} x {bb[4] - bb[1]:.0f} mm")
     export_3mf(OUT / "00_fit_test_sampler.3mf", sampler, separate_objects=True)
-    preview(OUT / "00_fit_test_sampler.png", [p.solid for p in sampler])
+    preview(OUT / "00_fit_test_sampler.png", [p.solid for p in sampler], elev=55)
 
     shelf = lambda names: [mods[n].translate(((MOD_W + GAP) * i, MOD_D - mods[n].bounding_box()[4], 0))  # noqa: E731
                            for i, n in enumerate(names)]

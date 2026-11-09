@@ -62,11 +62,19 @@ they need no supports, and the feet print separately:
 - The lift also lets air under the sponge cups, so sponges dry from below.
 
 ## Print order
-1. **`00_fit_test_sampler.3mf`** (about 2 h, ~100 g; fits in a 171 × 196 mm area). It has one of every stick slot (shallow),
-   4 test feet with sockets to try the press fit, and a mini rack with compact slots of
-   17 / 19 / 22 / 26 / 36 / 42 mm. Test it with the NARS blush, the H&M palette, the sun club
-   bronzer, the Glossier quad, the TIRTIR and the Morphe jar. If anything is tight or loose,
-   tell me which item and I'll change its number.
+1. **`00_fit_test_sampler.3mf`** (about 50 min, ~47 g). A **flat 3 mm plate with every slot cut
+   straight through**. It only checks that each thing *fits through* its opening; the real
+   organizers are much deeper (mascaras sit 18 mm deep, back rows 24 mm). Push each item into
+   its hole:
+   - Front row (left → right): Ø13 pencil · Ø17 chunky stick · Ø22 gloss/brow gel · Ø24 concealer ·
+     Ø26 blush wand · Ø28 mascara
+   - 2nd row: Ø34 Fenty stick · about-face slot · flat-tube slot · squeeze-tube slot
+   - 3rd row: Pixi slot, then thin-compact slots 17 / 18 / 19 / 22 / 24 mm (push a compact's
+     edge in: NARS → 17, W7 → 17, wet n wild bronzer → 18, H&M → 19, sun club → 22, Morphe blush → 24)
+   - Back row: thick slots 28 / 31 / 39 / 44 mm (Glossier quad → 28, Fenty cream → 31,
+     Glossier jar → 39, Morphe jar → 44)
+   - The small square has 4 foot sockets **on its underside**: flip it over and press a foot in.
+   Tell me anything that's too tight or too loose and I'll change just that number.
 2. `M0_feet.3mf`, then the six modules, in any order.
 
 ## Bambu Studio recipe: fastest print, least filament
@@ -92,7 +100,7 @@ Door/lid:   open a little for PLA
 ### Filament & time estimate (with this recipe)
 | File | ≈ PLA | ≈ time |
 |---|---|---|
-| 00 fit test sampler | 100 g | 2 h |
+| 00 fit test sampler | 47 g | 0.9 h |
 | M0 feet ×28 | 18 g | 0.4 h |
 | M1 eyes & lips | 205 g | 4.0 h |
 | M2 cheeks & tubes | 140 g | 2.7 h |
@@ -100,7 +108,7 @@ Door/lid:   open a little for PLA
 | M4 bottle stairs | 195 g | 3.7 h |
 | M5 thin compacts | 205 g | 3.9 h |
 | M6 thick compacts | 140 g | 2.6 h |
-| **Total** | **≈ 1.23 kg (1.11 kg without the sampler)** | **≈ 24 h (21 h)** |
+| **Total** | **≈ 1.16 kg (1.11 kg without the sampler)** | **≈ 22 h (21 h)** |
 
 Before this pass the same set was about 1.6 kg and 37 h. To get there, slots got shallower,
 tiers and divider walls lower, rack base plates were removed, and the bottle stairs became solid
