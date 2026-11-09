@@ -117,6 +117,10 @@ Worked, verified examples: `examples/box_with_lid.py` (fit clearance check, two 
 - Design: shallow pockets (20–25 mm holds most things), low tiers and walls, no full base plates
   under open frames, solid + lightning instead of long hollow-ribbed side-printed parts, and
   3-line (1.26 mm) dividers where nothing is load-bearing.
+- "Honeycomb" only wins where walls do real work. Cells running from the bed to the top are no
+  lighter than solid + lightning infill. Make only frame walls reach the bed, bridge one thin floor
+  per row (≤ 30 mm, add a rib if longer), and put cells only above it: 25–35 % less on slot
+  holders. Measure with `estimate()` before claiming a saving; for plain steps, solid + lightning won.
 
 ## Gotchas you must check before handing over
 - Units are mm. If Bambu Studio asks "convert from inches/meters?", the export was wrong.

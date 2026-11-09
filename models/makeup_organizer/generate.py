@@ -11,6 +11,7 @@ How sizes were measured: widths/diameters from the top-down photo, scaled with t
 taken from the angled photos and each slot gets +4 mm so things drop in easily.
 Edit a number below and re-run:  python3 models/makeup_organizer/generate.py
 """
+import math
 import sys
 from pathlib import Path
 
@@ -169,12 +170,109 @@ def bottle_stairs():
     return m, m
 
 
+
+# ---- HONEYCOMB versions (speed first, looks second) --------------------------------------
+# Only walls get printed: every slot is a thin hex (or rounded-rect) cell that shares walls with
+# its neighbours, with a small floor partway down. No solid blocks, no big top/bottom skins,
+# no infill. Rows still step up toward the back so everything stays visible.
+HC_WALL = 0.84               # 2 lines - thin, fast
+HC_FLOOR = 0.84              # cell floors: 3 layers at 0.28 (short bridges)
+HC_MAX_BRIDGE = 36.0         # wider cells get their floor on the shelf instead of mid-air
+SQ3 = 3 ** 0.5
+
+
+def hex2d(af):
+    """Hexagon with flats facing ±X, across-flats `af`, centred."""
+    r = af / SQ3
+    return poly2d([(r * math.cos(math.radians(30 + 60 * k)), r * math.sin(math.radians(30 + 60 * k))) for k in range(6)])
+
+
+def cell2d(shape, grow=0.0):
+    k, w, l = shape[:3]
+    if k == "r":
+        return rect2d(w + 2 * grow, l + 2 * grow, min(8.0, w / 2 - 0.5, l / 2 - 0.5) + grow).translate((-w / 2 - grow, -l / 2 - grow))
+    return hex2d(w + 2 * grow)
+
+
+def cell_extent(shape, grow=0.0):
+    k, w, l = shape[:3]
+    return (w + 2 * grow, l + 2 * grow) if k == "r" else (w + 2 * grow, 2 * (w + 2 * grow) / SQ3)
+
+
+def honeycomb_block(rows, width=MOD_W, base_h=BASE_H, step_h=STEP_H):
+    """Rows of thin-walled cells. Only each row's frame walls reach the shelf; one thin floor per
+    row bridges between them, and the hex cells exist only above that floor, where they hold
+    something. Wide or long rows get a rib under the floor so no bridge is longer than ~30 mm."""
+    W = HC_WALL
+    walls, inners, floors, layout = [], [], [], []
+    row_d = [max(cell_extent(s, W)[1] for s, n, _ in row) for row in rows]
+    depth = sum(row_d) - W * (len(rows) - 1)
+    y = 0.0
+    for i, (row, L) in enumerate(zip(rows, row_d)):
+        top = base_h + i * step_h
+        items = [s for s, n, _ in row for _ in range(n)]
+        labels = [lab for _, n, lab in row for _ in range(n)]
+        ow = [cell_extent(s, W)[0] for s in items]
+        span = sum(ow) - W * (len(items) - 1)
+        assert span <= width - 2 * W, f"row {i} too wide ({span:.0f} mm)"
+        ds = [min(s[3] or HOLE_D, top - 5.0) for s in items]
+        wide = any((min(cell_extent(s)) if s[0] == "r" else s[1]) > HC_MAX_BRIDGE for s in items)
+        fz = 0.0 if wide else top - max(ds)                         # row floor height
+        # row frame from the shelf up (back wall shared with the next row)
+        frame = rect2d(width, L) - rect2d(width - 2 * W, L - 2 * W).translate((W, W))
+        walls.append(extrude(frame, top).translate((0, y, 0)))
+        x = (width - span) / 2
+        floors.append(box(span, L, HC_FLOOR).translate((x, y, max(fz - HC_FLOOR, 0))))  # only under the cells
+        if fz > 0 and L - 2 * W > 30:                               # mid rib keeps the bridge short
+            walls.append(box(span, W, fz).translate((x, y + L / 2 - W / 2, 0)))
+        cy = y + L / 2
+        for s, lab, w_out, d in zip(items, labels, ow, ds):
+            cx = x + w_out / 2
+            walls.append(extrude(cell2d(s, W), top - fz).translate((cx, cy, fz)))
+            inners.append(extrude(cell2d(s), top + 2).translate((cx, cy, fz + 0.001)))
+            if top - d > fz + 0.5:                                   # shallower cell: its own floor
+                floors.append(extrude(cell2d(s, 0.01), HC_FLOOR).translate((cx, cy, top - d - HC_FLOOR)))
+            if s[4]:
+                inners.append(cyl(top + 2, s[4]).translate((cx, cy, -1)))   # drain / air hole
+            layout.append((s, cx, cy, lab))
+            x += w_out - W
+        y += L - W
+    body = union(union(*walls, *floors) - union(*inners))
+    i = FOOT_D / 2
+    feet = [(i, i, 5.0), (width - i, i, 5.0), (i, depth - i, 5.0), (width - i, depth - i, 5.0)]
+    return add_sockets(body, feet), layout
+
+
+def honeycomb_stairs(af=20.0, wall=1.26):
+    """Open-top honeycomb steps: bottles stand on the hex edges. Walls only - very fast."""
+    pitch = af + wall
+    cells = []
+    ny = int(MOD_D / (pitch * SQ3 / 2)) + 3
+    nx = int(MOD_W / pitch) + 3
+    for j in range(-1, ny):
+        for k in range(-1, nx):
+            cells.append(hex2d(af).translate((k * pitch + (pitch / 2 if j % 2 else 0), j * pitch * SQ3 / 2)))
+    holes = CrossSection.batch_boolean(cells, ADD)
+    parts = []
+    for y0, y1, h in STAIRS:
+        region = rect2d(MOD_W, y1 - y0).translate((0, y0))
+        lattice = region - holes
+        rim = region - rect2d(MOD_W - 2 * wall, y1 - y0 - 2 * wall).translate((wall, y0 + wall))
+        parts.append(extrude(CrossSection.batch_boolean([lattice, rim], ADD), h))
+        parts.append(box(MOD_W, wall, h + LIP).translate((0, y0, 0)))          # front lip of each step
+    body = union(*parts)
+    i = FOOT_D / 2
+    feet = [(i, i, STAIRS[0][2]), (MOD_W - i, i, STAIRS[0][2]),
+            (i, MOD_D - i, 5.0), (MOD_W - i, MOD_D - i, 5.0)]
+    return add_sockets(body, feet)
+
+
 # ---- M5 / M6: compact racks ---------------------------------------------------------
 # Item: (label, width mm along the row, thickness mm). Width = longest side that stands on the
 # floor (diameter for rounds). Measured from the top-down photo; thickness estimated.
 FIT_T, FIT_W = 4.0, 6.0      # slot = thickness + 4; each item gets width + 6
 DIV = 1.26                   # divider / rib thickness (3 lines: stiff enough, less plastic)
-FLOOR_T = 1.2                # slot floor thickness
+FLOOR_T = 0.84               # slot floor thickness (3 layers at 0.28)
 RACK_BASE, RACK_STEP, HOLD = 4.0, 4.0, 18.0   # floor heights; divider height above its floor (low = less plastic)
 BRIDGE_MAX = 26.0            # wider floors get a support wall underneath (no sagging bridges)
 
@@ -315,9 +413,8 @@ def spot_map(path, layouts):
 def build():
     mods, layouts, print_pose = {}, {}, {}
     for name, rows in BLOCKS.items():
-        blk, layouts[name] = tiered_block(rows)
-        mods[name] = add_sockets(blk)
-    print_pose["M4_bottle_stairs"], mods["M4_bottle_stairs"] = bottle_stairs()
+        mods[name], layouts[name] = honeycomb_block(rows)
+    mods["M4_bottle_stairs"] = bottle_stairs()[0]   # solid + lightning beats a honeycomb here (checked)
     m5, layouts["M5_thin_compacts"], _, f5 = compact_rack(THIN_RACK, side=THIN_SIDE)
     m6, layouts["M6_thick_compacts"], _, f6 = compact_rack(THICK_RACK, fit_t=FIT_T + 2)  # jars get extra room
     mods["M5_thin_compacts"] = add_sockets(m5, f5)

@@ -5,9 +5,11 @@ modules of 184 × 216 mm (7.2" × 8.5"), which leaves about ⅜" of play side to
 to back so they drop in easily. Every module fits one P1S plate. See `spot_map.png` for what
 goes where.
 
-## Shelf 1: sticks & tubes (stand upright in slots, back rows higher)
-Slots are packed about 5 mm apart (about 3 mm of plastic between items). Each block is only as deep as
-its rows need and sits against the back of the shelf.
+## Shelf 1: sticks & tubes: **honeycomb cells** (speed over looks)
+Every slot is a thin-walled hex (or rounded-rect) cell that shares walls with its neighbours. Only
+each row's frame walls reach the shelf; one thin floor per row bridges between them, and the cells
+exist only above that floor. There are no solid blocks, no big top surfaces and no infill. Rows still
+step up toward the back so you can see everything.
 
 | Module | Holds (front → back) |
 |---|---|
@@ -100,19 +102,22 @@ Door/lid:   open a little for PLA
 ### Filament & time estimate (with this recipe)
 | File | ≈ PLA | ≈ time |
 |---|---|---|
-| 00 fit test sampler | 47 g | 0.9 h |
-| M0 feet ×28 | 18 g | 0.4 h |
-| M1 eyes & lips | 205 g | 4.0 h |
-| M2 cheeks & tubes | 140 g | 2.7 h |
-| M3 brushes, sponges & puffs | 205 g | 4.0 h |
-| M4 bottle stairs | 195 g | 3.7 h |
-| M5 thin compacts | 205 g | 3.9 h |
-| M6 thick compacts | 140 g | 2.6 h |
-| **Total** | **≈ 1.16 kg (1.11 kg without the sampler)** | **≈ 22 h (21 h)** |
+| 00 fit test sampler | 45 g | 0.9 h |
+| M0 feet ×28 | 11 g | 0.2 h |
+| M1 eyes & lips (honeycomb) | 160 g | 3.1 h |
+| M2 cheeks & tubes (honeycomb) | 90 g | 1.7 h |
+| M3 brushes, sponges & puffs (honeycomb) | 155 g | 3.0 h |
+| M4 bottle stairs (solid + lightning) | 195 g | 3.7 h |
+| M5 thin compacts | 175 g | 3.3 h |
+| M6 thick compacts | 120 g | 2.3 h |
+| **Total** | **≈ 950 g (905 g without the sampler)** | **≈ 18 h (17.5 h)** |
 
-Before this pass the same set was about 1.6 kg and 37 h. To get there, slots got shallower,
-tiers and divider walls lower, rack base plates were removed, and the bottle stairs became solid
-upright steps with lightning infill. These are my estimates (±25 %); Bambu Studio shows the exact
-numbers when you slice.
+These are my estimates from slicing the models layer by layer (±25 %). Bambu Studio shows the
+exact numbers. Version history: solid 0.20 mm about 1.6 kg / 37 h → fast recipe about 1.1 kg / 21 h →
+honeycomb about 0.95 kg / 18 h.
+
+**Why the bottle stairs aren't honeycomb:** I tested it. A honeycomb stair has to be walls all the
+way down to the shelf, about 313 g. Solid steps with lightning infill come to about 193 g, because lightning
+infill is already a sparse lattice the slicer builds only where the top needs holding up.
 
 Regenerate after changing a number: `python3 models/makeup_organizer/generate.py`
