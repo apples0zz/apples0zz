@@ -21,8 +21,12 @@ OUT = Path(__file__).resolve().parent
 MAT = "PLA"
 
 # ---- shelf & module footprint ----------------------------------------------
-SHELF_W, SHELF_D = 571.5, 222.25          # 22.5" x 8.75"
-MOD_W, MOD_D = 186.0, 214.0               # 3 across = 558 mm, 8 mm short of the shelf depth
+SHELF_W, SHELF_D = 571.5, 222.25          # 22.5" x 8.75" as measured
+# The shelves have ~5/8" rims on the back and sides. To fit whether the measurement was taken
+# inside or outside the rims, size the modules for the worst case (outside measurement):
+RIM = 16.0
+INNER_W, INNER_D = SHELF_W - 2 * RIM, SHELF_D - RIM   # ≈ 540 x 206 mm usable
+MOD_W, MOD_D = 176.0, 204.0               # 3 across = 528 mm + 2 x 6 mm gaps = 540 mm
 CORNER_R = 6.0
 
 # ---- tiered slot blocks ---------------------------------------------------------
@@ -49,8 +53,8 @@ MODULES = {
     "M1_eyes": [
         [(C(28), 5, "mascara")],                      # Lancôme-style, tartelette XL, gold mascara, Maybelline bubble, pink 'jet black', cream stick
         [(C(17), 8, "eye stick / thick liner")],     # Morphe, skywash, Laura Mercier caviar, CT Forbidden Rose, ...
-        [(C(13), 10, "pencil / liner / brow")],       # wnw breakup proof, CT liner, Epic Wear, Black Silk, kohl, Lip Cheat, brow pen...
-        [(C(13), 10, "pencil / liner / brow")],
+        [(C(13), 9, "pencil / liner / brow")],       # wnw breakup proof, CT liner, Epic Wear, Black Silk, kohl, Lip Cheat, brow pen...
+        [(C(13), 9, "pencil / liner / brow")],
     ],
     "M2_lips_concealer": [
         [(R(36, 20), 4, "flat tube (Summer Fridays, Blistex, cloud paint)")],
@@ -59,15 +63,15 @@ MODULES = {
         [(C(24), 6, "concealer")],                    # CG Clean Invisible, Flower, Real Flawless, NARS
     ],
     "M3_cheek_jars": [
-        [(P(76), 2, "jar stack (essence matt, Fenty cream)")],
-        [(P(70), 1, "elf putty bronzer"), (P(46), 2, "Colourpop / small pot")],
+        [(P(72), 2, "jar stack (essence matt, Fenty cream)")],
+        [(P(68), 1, "elf putty bronzer"), (P(46), 2, "Colourpop / small pot")],
         [(R(30, 25), 4, "about-face stick")],
         [(C(26), 5, "blush wand / Rare Beauty / cream stick")],
     ],
     "M5_tubes_sticks": [
         [(C(34), 2, "Fenty hex stick"), (R(46, 34), 1, "Pixi stick"), (C(34), 1, "spare stick")],
-        [(R(30, 58), 5, "squeeze tube, cap down")],   # NARS, wnw Impossible, SPF 50, Anua, Laura Mercier
-        [(R(30, 58), 5, "squeeze tube, cap down")],
+        [(R(29, 58), 5, "squeeze tube, cap down")],   # NARS, wnw Impossible, SPF 50, Anua, Laura Mercier
+        [(R(29, 58), 5, "squeeze tube, cap down")],
     ],
 }
 
@@ -97,7 +101,8 @@ def tiered_block(rows, width=MOD_W, depth=MOD_D):
         total = sum(s[1] for s in items)
         gap_x = (width - total) / (len(items) + 1)
         # +2: the 1 mm lead-in chamfer eats into the wall on each side
-        assert gap_x >= EDGE + 2,f"row {i} too crowded ({gap_x:.1f} mm between slots)"
+        min_gap = EDGE if any(s[0] == "p" for s in items) else EDGE + 2  # pockets have no lead-in chamfer
+        assert gap_x >= min_gap, f"row {i} too crowded ({gap_x:.1f} mm between slots)"
         x = gap_x
         for s, lab in zip(items, labels):
             cx = x + s[1] / 2
@@ -115,7 +120,7 @@ def tiered_block(rows, width=MOD_W, depth=MOD_D):
 
 
 # ---- M4: bottle stairs (printed on its side - light, no supports) -------------
-STAIRS = [(0, 72, 6), (72, 143, 40), (143, MOD_D, 74)]   # (y from, y to, step height)
+STAIRS = [(0, 68, 6), (68, 136, 40), (136, MOD_D, 74)]   # (y from, y to, step height)
 LIP = 5.0          # little front lip on each step so bottles don't slide off
 SHELL = 2.4
 
@@ -140,10 +145,10 @@ def bottle_stairs():
 
 # ---- M6: compact rack (stand compacts on edge, stepped like a record bin) ----
 # slot widths front -> back = compact thickness + ~3 mm (thin/low in front, thick/high in back)
-COMPACT_SLOTS = [(17, "W7 Duo Blusher"), (17, "wet n wild bronzer"), (18, "Charlotte Tilbury compact"),
-                 (18, "black square palette"), (19, "pink palette"), (22, "H&M palette"),
-                 (23, "Glossier quad"), (25, "rose-gold round compact"), (30, "TIRTIR cushion")]
-DIV = 2.4             # divider thickness
+COMPACT_SLOTS = [(16, "W7 Duo Blusher"), (16, "wet n wild bronzer"), (17, "Charlotte Tilbury compact"),
+                 (17, "black square palette"), (18, "pink palette"), (21, "H&M palette"),
+                 (22, "Glossier quad"), (24, "rose-gold round compact"), (29, "TIRTIR cushion")]
+DIV = 1.68            # divider thickness (4 lines)
 RACK_BASE, RACK_STEP, RACK_HOLD = 4.0, 7.0, 28.0   # floor heights & how high each divider stands above its floor
 SIDE_H = 14.0
 
@@ -194,8 +199,10 @@ def spot_map(path, layouts):
     fig, axes = plt.subplots(2, 1, figsize=(15, 13))
     for ax, (title, names) in zip(axes, shelves):
         ax.add_patch(Rectangle((0, 0), SHELF_W, SHELF_D, fill=False, lw=2, ls="--", ec="#999"))
+        for rx, ry, rw, rh in [(0, 0, RIM, SHELF_D), (SHELF_W - RIM, 0, RIM, SHELF_D), (0, SHELF_D - RIM, SHELF_W, RIM)]:
+            ax.add_patch(Rectangle((rx, ry), rw, rh, fc="#a16207", alpha=.35, ec="none"))   # rims (worst case)
         for j, name in enumerate(names):
-            ox = 6 + j * (MOD_W + 6)
+            ox = RIM + j * (MOD_W + 6)
             ax.add_patch(FancyBboxPatch((ox, 4), MOD_W, MOD_D, boxstyle="round,pad=0,rounding_size=6",
                                         fc="#fdf2f8", ec="#db2777", lw=1.5))
             ax.text(ox + MOD_W / 2, MOD_D + 12, name.replace("_", " "), ha="center", fontsize=11, weight="bold")
@@ -253,7 +260,7 @@ if __name__ == "__main__":
     print(f"\nTOTAL ≈ {total:.0f} g PLA")
     # fit-test sampler: one of every slot size, ~1 h print - check before the big ones
     sampler, _ = tiered_block([[(C(13), 1, ""), (C(17), 1, ""), (C(24), 1, ""), (C(26), 1, ""), (C(28), 1, ""), (C(34), 1, "")],
-                               [(R(30, 25), 1, ""), (R(36, 20), 1, ""), (R(46, 34), 1, ""), (R(30, 58), 1, "")]],
+                               [(R(30, 25), 1, ""), (R(36, 20), 1, ""), (R(46, 34), 1, ""), (R(29, 58), 1, "")]],
                               width=MOD_W, depth=100)
     report(sampler, MAT, infill=0.08, name="00_fit_test_sampler")
     export_3mf(OUT / "00_fit_test_sampler.3mf", [Part("fit test sampler", sampler, 1)])
