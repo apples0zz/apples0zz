@@ -74,7 +74,7 @@ bottom, or they'd need supports, so the feet are printed separately:
 ```
 Printer:   Bambu Lab P1S 0.4 nozzle · Plate: Textured PEI · Filament: your PLA preset
 Process:   0.20mm Standard · walls 2 · top layers 5 · bottom 3
-Infill:    10% lightning (already set in each 3MF)
+Infill:    10% lightning  (Strength tab → Sparse infill pattern: Lightning, density 10%)
 Supports:  OFF
 Brim:      off
 Door/lid:  open a little for PLA

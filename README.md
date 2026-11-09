@@ -1,7 +1,7 @@
 # apples0zz — Bambu P1S models
 
-Parametric, print-checked models for a Bambu Lab P1S. Open the `.3mf` files in Bambu Studio:
-parts, AMS filament slots and per-part settings come pre-assigned.
+Parametric, print-checked models for a Bambu Lab P1S. Open the `.3mf` files in Bambu Studio
+(File → Open, or drag them in). Each model's README lists the slicer settings to use.
 
 | Model | Files | Notes |
 |---|---|---|

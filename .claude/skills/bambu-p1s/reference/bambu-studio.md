@@ -28,14 +28,14 @@ Use variable layer height (Adaptive, then Smooth) for organic shapes.
 
 ## Per-object / per-part overrides
 Right-click an object or part in the object list → add setting (walls, infill, …).
-The toolkit's `Part(settings={...})` writes these keys into the 3MF, e.g.
-`{"wall_loops": "4", "sparse_infill_density": "40%", "top_shell_layers": "6"}`.
+(`Part(settings=...)` is only written with `export_3mf(..., bambu_config=True)`, which makes
+Bambu Studio show an "invalid config" warning, so put these overrides in the recipe instead.)
 Modifiers (right-click → Add modifier → box/cylinder) change settings in a region only:
 e.g. 100 % infill around a screw hole. Height range modifier: settings by Z range.
 
 ## Multi-colour / multi-material
-- 3MF from `export_3mf()` arrives as one object with parts already mapped to filament 1, 2…
-  Map those to AMS slots in the Filament list (left panel) — colours sync from the AMS.
+- 3MF from `export_3mf()` arrives as one object made of named parts (e.g. "base", "inlay").
+  Click each part in the object list and pick its filament; colours sync from the AMS.
 - STL route: import all colour STLs at once → "Load these files as a single object with
   multiple parts?" → **Yes**, then set each part's filament.
 - Painting: Color painting tool (N) for quick colour on a single mesh.

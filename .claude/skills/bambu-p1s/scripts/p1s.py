@@ -279,9 +279,16 @@ def export_stl(path, m: Manifold):
     return path
 
 
-def export_3mf(path, parts: list[Part], object_name: str | None = None, center=True, separate_objects=False):
+def export_3mf(path, parts: list[Part], object_name: str | None = None, center=True, separate_objects=False,
+               bambu_config=False):
     """
-    Write a 3MF that Bambu Studio opens with filament slots pre-assigned.
+    Write a plain (core-spec) 3MF that Bambu Studio opens cleanly.
+
+    bambu_config=False (default): geometry only. A hand-written Bambu
+    Metadata/model_settings.config makes Bambu Studio warn "The 3mf file has invalid
+    config, load geometry data only" (verified on a real install), so per-part
+    filament/settings are NOT embedded - give them in the slicer recipe instead.
+    bambu_config=True writes that config anyway (experimental; expect the warning).
 
     Default: all parts become ONE object with multiple parts (like Bambu's
     "Add Part"), keeping their relative positions - this is what you want for
@@ -353,7 +360,8 @@ def export_3mf(path, parts: list[Part], object_name: str | None = None, center=T
         z.writestr("[Content_Types].xml", content_types)
         z.writestr("_rels/.rels", rels)
         z.writestr("3D/3dmodel.model", model)
-        z.writestr("Metadata/model_settings.config", config)
+        if bambu_config:
+            z.writestr("Metadata/model_settings.config", config)
     return path
 
 

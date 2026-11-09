@@ -7,8 +7,8 @@ description: Design, model and prepare 3D-printable parts for a Bambu Lab P1S in
 
 You turn an idea ("a hook for my bike helmet", "a box for my SD cards", "a two-colour sign")
 into a **watertight, support-minimised, correctly-toleranced model**, checked by code, exported
-as a **3MF that opens in Bambu Studio with filaments pre-assigned**, plus the exact slicer
-settings to use.
+as a **plain 3MF that opens cleanly in Bambu Studio**, plus the exact slicer settings to use
+(settings and filament slots go in the hand-off recipe, not the file; see Gotchas).
 
 ## The machine (design to these numbers)
 
@@ -54,7 +54,7 @@ export_3mf("models/demo/demo.3mf", [Part("box", body, filament=1)])
 ```
 Worked, verified examples: `examples/box_with_lid.py` (fit clearance check, two objects),
 `examples/two_color_coaster.py` (AMS 2-colour flush inlay as parts of one object),
-`examples/phone_stand.py` (print-on-side strategy, teardrop cable routing, per-part settings).
+`examples/phone_stand.py` (print-on-side strategy, teardrop cable routing).
 
 ## Design rules for FDM on the P1S
 
@@ -111,6 +111,11 @@ Worked, verified examples: `examples/box_with_lid.py` (fit clearance check, two 
 
 ## Gotchas you must check before handing over
 - Units are mm. If Bambu Studio asks "convert from inches/meters?", the export was wrong.
+- Don't embed Bambu settings in the 3MF: a hand-written `Metadata/model_settings.config`
+  triggers "The 3mf file has invalid config, load geometry data only" (seen on the user's
+  install). `export_3mf()` writes geometry only by default. Put infill, walls and filament
+  slots in the hand-off recipe. For multi-colour, the parts load as one object; tell the
+  user which part goes to which AMS slot.
 - Bodies that touch only at an edge or a point = non-manifold; fuse with ≥ 0.4 mm overlap.
 - Zero-thickness / coplanar booleans: overshoot cutters by 0.5–1 mm past the surface.
 - Smooth curves: the toolkit uses 96 segments; increase for > 100 mm diameter arcs.
