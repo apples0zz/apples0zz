@@ -1,50 +1,76 @@
 # Bathroom makeup organizer: 2 shelves, 6 modules
 
-Shelves: 8.75" × 22.5" (222 × 572 mm), with rims on the back and sides. The modules are sized
-to fit **inside the rims even if the measurement was taken outside them** (usable area about
-540 × 206 mm). Three modules sit side by side on each shelf. Each module is 176 × 204 mm and
-fits one P1S plate. If your measurement was the inside, you'll just have about 1" of spare room. Back rows are higher than front rows, like
-stadium seating, so everything stays visible. See `spot_map.png` for what goes where.
+Shelves: **22.5" × 8.75" measured inside the rims** (572 × 222 mm). Each shelf takes three
+modules of 184 × 216 mm (7.2" × 8.5"), which leaves about ⅜" of play side to side and ¼" front
+to back so they drop in easily. Every module fits one P1S plate. See `spot_map.png` for what
+goes where.
 
-| Shelf | Module | Holds | Max height | Est. PLA |
-|---|---|---|---|---|
-| 1 | **M1 eyes** | 5 mascaras · 8 eye sticks/thick liners · 18 pencils/liners/brow | 62 mm | ~205 g |
-| 1 | **M2 lips & concealer** | 6 concealers · 12 glosses/lip/liquid shadow · 4 flat tubes | 62 mm | ~200 g |
-| 1 | **M3 cheek & jars** | 2 jar stacks (essence, Fenty) · elf putty · 2 Colourpop pots · 4 about-face · 5 blush wands/sticks | 62 mm | ~180 g |
-| 2 | **M4 bottle stairs** | ~15 bottles on 3 steps (6 / 40 / 74 mm) with lips so nothing slides | 79 mm | ~150 g |
-| 2 | **M5 tubes & sticks** | 10 squeeze tubes cap-down · 2 Fenty hex sticks · Pixi stick · 1 spare | 50 mm | ~155 g |
-| 2 | **M6 compact rack** | 9 compacts standing on edge, each slot higher than the one in front | 98 mm | ~180 g |
-| — | **00 fit test sampler** | one of every slot size; print this first | 38 mm | ~75 g |
+## Shelf 1: sticks & tubes (stand upright in slots, back rows higher)
+| Module | Holds |
+|---|---|
+| **M1 eyes** | 5 mascaras · big beige stick · Glossier brow gel · 4 chunky eye sticks (white pen, Morphe, Skywash + 1 spare) · 12 pencil/liner/brow slots (10 items + 2 spare) |
+| **M2 lips & concealer** | 3 flat tubes (Summer Fridays, Blistex, Cloud Paint) · 4 concealers · 10 gloss/lip slots (9 items + 1 spare) |
+| **M3 cheek sticks & tubes** | 3 liquid blushes/wands · 3 about-face sticks · 2 Fenty hex sticks · Pixi stick · 4 squeeze tubes cap-down |
 
-**Total ≈ 1.07 kg PLA** (about one 1 kg spool plus the sampler). These are rough estimates; Bambu Studio
-shows the exact grams and time when you slice.
+## Shelf 2: face
+| Module | Holds |
+|---|---|
+| **M4 bottle stairs** | 12 bottles on 3 steps (6 / 40 / 74 mm high), each with a lip so nothing slides off |
+| **M5 thin compacts** | 13 flat compacts **standing on their sides**, each in its own slot sized to its thickness, plus the Too Faced tin on its long edge in a side slot |
+| **M6 thick compacts & jars** | 8 jars and cushions standing on their sides, plus 2 spare slots for new compacts |
+
+## Recount: 21 compacts, pans and jars (from your last photo)
+Width = the edge it stands on, measured from the photo using the keyboard keys as a ruler.
+Thickness is estimated from the angled photos, since a top-down photo can't show it.
+Every slot is **thickness + 4 mm** (jars + 6 mm) so things slide in easily.
+
+| Item | Width (mm) | Thick (mm) | Spot |
+|---|---|---|---|
+| Too Faced Italian Spritz tin | 209 long × 89 | 15 | M5 side slot (long edge down) |
+| H&M palette | 133 | 15 | M5 |
+| essence sun club bronzer | Ø103 | 18 | M5 |
+| W7 Duo Blusher | 94 | 13 | M5 |
+| essence all about matt | Ø80 | 15 | M5 |
+| marie claire setting powder | Ø75 | 15 | M5 |
+| wet n wild bronzer | 75 | 14 | M5 |
+| Charlotte Tilbury compact | 77 | 15 | M5 |
+| Morphe blush | Ø73 | 20 | M5 |
+| NARS blush | 65 | 13 | M5 |
+| wet n wild blush | Ø63 | 15 | M5 |
+| peach round compact | Ø60 | 20 | M5 |
+| Colourpop pot | Ø42 | 18 | M5 |
+| TIRTIR cushion | 95 | 32 | M6 |
+| rose-gold compact | Ø80 | 22 | M6 |
+| Glossier jar | Ø74 | 33 | M6 |
+| Glossier quad | 71 | 22 | M6 |
+| Morphe powder jar | Ø70 | 38 | M6 |
+| Milani blush | Ø69 | 22 | M6 |
+| Fenty cream blush | 55 | 25 | M6 |
+| elf putty bronzer | Ø47 | 28 | M6 |
+
+Earlier I had counted 9 compacts and listed the Charlotte Tilbury twice. The real count is 21.
 
 ## Print order
-1. `00_fit_test_sampler.3mf`. Drop your fattest mascara, a pencil, a concealer, an about-face
-   stick and a squeeze tube into it. If something is too tight or too loose, tell me and I'll
-   adjust that slot size in `generate.py` and re-export.
-2. The six modules, in any order. Each `.3mf` already sits on the plate in the right pose.
-   The bottle stairs (M4) print **on their side** on purpose, so they need no supports.
+1. **`00_fit_test_sampler.3mf`** (about 3 h, ~190 g). It has one of every stick slot, plus a
+   mini rack with compact slots of 17 / 19 / 22 / 26 / 36 / 42 mm. Test it with the NARS blush,
+   the H&M palette, the sun club bronzer, the Glossier quad, the TIRTIR and the Morphe jar. If
+   anything is tight or loose, tell me which item and I'll change its number.
+2. Then the six modules, in any order.
 
-## Bambu Studio recipe (same for every module)
+## Bambu Studio recipe (all parts)
 ```
 Printer:   Bambu Lab P1S 0.4 nozzle · Plate: Textured PEI · Filament: your PLA preset
-Process:   0.20mm Standard · walls 2 (default) · top layers 5 · bottom 3
-Infill:    10% lightning (already set in the 3MF). It only fills under the tops, so it saves a lot of filament
-Supports:  OFF. None needed: checked by code, 0 mm² of overhang steeper than 45°
-Brim:      off (M4 on its side is 186 mm tall but 79 mm wide; turn brim on if it wobbles)
+Process:   0.20mm Standard · walls 2 · top layers 5 · bottom 3
+Infill:    10% lightning (already set in each 3MF)
+Supports:  OFF
+Brim:      off
 Door/lid:  open a little for PLA
 ```
-M6's slot floors are short bridges (≤ 30 mm) between its dividers. The P1S bridges these
-cleanly with supports off, so ignore the overhang warning for that part.
+- M4 bottle stairs print **on their side** on purpose, so they need no supports.
+- In M5 and M6 the slot floors span between the dividers. Every span is 24 mm or less (wide slots
+  get a support wall underneath), which the P1S prints cleanly without supports. Ignore
+  the overhang warning in Bambu Studio for these.
 
-## What I assumed (please check)
-- **Product sizes are estimated from your photos.** Every slot has a few mm of slack, but
-  the sampler is the real test.
-- **Shelf height:** about 11–12" of space above each shelf (estimated from the photo). The tallest point,
-  the M4 top step plus your tallest bottle, is about 8.7", so it fits.
-- **Compact slots are snug** (2–3 mm wider than each compact's estimated thickness, to fit the
-  shallower shelf). If one doesn't fit, tell me which and I'll widen it.
-- Brushes, sponges and the mirror aren't included. Want a brush cup module too?
+Estimated total about 1.2 kg PLA plus the sampler. Bambu Studio shows the exact amount when you slice.
 
-Regenerate after changing any number: `python3 models/makeup_organizer/generate.py`
+Regenerate after changing a number: `python3 models/makeup_organizer/generate.py`

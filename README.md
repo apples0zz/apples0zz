@@ -8,7 +8,7 @@ parts, AMS filament slots and per-part settings come pre-assigned.
 | Box with slide-on lid | `models/box_with_lid/` | 80×60×40 mm, 0.25 mm/side lid fit, no supports |
 | Two-colour hex coaster | `models/two_color_coaster/` | AMS: base = slot 1, inlay = slot 2 (top 3 layers only) |
 | Phone stand | `models/phone_stand/` | Prints on its side, no supports, cable pass-through |
-| **Bathroom makeup organizer** | `models/makeup_organizer/` | 6 modules for two 8.75"×22.5" shelves, a slot for everything. See its README |
+| **Bathroom makeup organizer** | `models/makeup_organizer/` | 6 modules for two 8.75"×22.5" shelves: stick slot blocks and side-standing compact racks. See its README |
 
 Regenerate or customise (e.g. a 120×80×50 box):
 

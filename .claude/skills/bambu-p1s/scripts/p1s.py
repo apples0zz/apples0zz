@@ -211,7 +211,9 @@ def report(m: Manifold, material="PLA", infill=0.15, walls=2, name="part", quiet
     printed_v = shell_v + core_v * infill
     grams = printed_v / 1000 * DENSITY.get(material, 1.24)
     ov_area, ov_n = overhang_area(m)
-    pieces = len(m.decompose())
+    comps = m.decompose()
+    pieces = sum(1 for c in comps if c.volume() > 0)      # solid bodies
+    voids = sum(1 for c in comps if c.volume() < 0)       # sealed internal cavities (e.g. under bridged floors)
     fits = size[0] <= BED_X and size[1] <= BED_Y and size[2] <= BED_Z
     r = {
         "name": name,
@@ -219,6 +221,7 @@ def report(m: Manifold, material="PLA", infill=0.15, walls=2, name="part", quiet
         "watertight": m.status().name == "NoError" and not m.is_empty(),
         "genus": m.genus(),
         "separate_bodies": pieces,
+        "sealed_voids": voids,
         "size_mm": tuple(round(s, 2) for s in size),
         "fits_p1s": fits,
         "on_bed": abs(z0) < 1e-3,
