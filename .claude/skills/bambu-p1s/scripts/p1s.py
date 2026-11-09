@@ -196,6 +196,33 @@ def overhang_area(m: Manifold, max_angle=45.0, bed_tol=0.05):
     return float(area[bad].sum()), int(bad.sum())
 
 
+def estimate(m: Manifold, material="PLA", layer=0.20, walls=2, top_layers=5, bottom_layers=3,
+             infill=0.15, flow_mm3_s=10.0) -> dict:
+    """
+    Slicer-style filament & time estimate (closer than report()'s rough number).
+    Walls = side area x walls x line width; skins = up/down area x layers x layer height;
+    infill = what's left x infill fraction (lightning ≈ 0.03-0.05 effective).
+    Time = extruded volume / average flow (P1S PLA ≈ 10 mm³/s incl. travel; Sport mode ≈ 12-13)
+    plus ~1.5 s per layer change. Rough (±25%) - Bambu Studio's slice is the real number.
+    """
+    v, f = _tri(m)
+    a, b, c = v[f[:, 0]], v[f[:, 1]], v[f[:, 2]]
+    n = np.cross(b - a, c - a)
+    area = np.linalg.norm(n, axis=1) / 2
+    nz = n[:, 2] / (np.linalg.norm(n, axis=1) + 1e-12)
+    side = area[np.abs(nz) <= 0.7].sum()
+    up = area[nz > 0.7].sum()
+    down = area[nz < -0.7].sum()
+    vol = m.volume()
+    # side area counts both faces of a thin wall; each face carries `walls` perimeters
+    shell = side * walls * LINE_W + up * top_layers * layer + down * bottom_layers * layer
+    shell = min(shell, vol)
+    printed = shell + (vol - shell) * infill
+    z0, z1 = m.bounding_box()[2], m.bounding_box()[5]
+    secs = printed / flow_mm3_s + (z1 - z0) / layer * 1.5
+    return {"grams": round(printed / 1000 * DENSITY.get(material, 1.24), 1), "hours": round(secs / 3600, 2)}
+
+
 def report(m: Manifold, material="PLA", infill=0.15, walls=2, name="part", quiet=False, sub_part=False) -> dict:
     """Print-readiness report: manifoldness, bed fit, mass estimate, overhangs.
     sub_part=True for a part of a multi-part object (e.g. a colour inlay) that legitimately floats above Z=0."""

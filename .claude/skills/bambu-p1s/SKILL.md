@@ -36,6 +36,8 @@ as a **plain 3MF that opens cleanly in Bambu Studio**, plus the exact slicer set
 4. **Check with code** — `report(part, material)` must show `watertight True`, `fits_p1s True`,
    `on_bed True`, and ~0 `overhang_mm2_gt45` (or a deliberate decision to use supports).
    For mating parts, measure the real clearance with `gap(a, b)` in the assembled pose.
+   Use `estimate(part, layer=…, top_layers=…, infill=…)` for slicer-style grams and hours.
+   Quote those numbers, not `report()`'s rough mass, and compare design options with them.
 5. **Look at it** — `preview("x.png", parts)` and Read the PNG. Fix anything that looks wrong.
 6. **Export** to `models/<name>/`: `export_3mf()` (preferred — keeps parts, colours, per-part
    settings) and `export_stl()` for sharing. Keep the generator `.py` next to the outputs.
@@ -108,6 +110,13 @@ Worked, verified examples: `examples/box_with_lid.py` (fit clearance check, two 
   support interfaces.
 - Single-extruder alternative without AMS: colour-by-layer — add a filament change/pause on the
   layer slider (e.g. raised letters in another colour).
+
+## Fast & lean (when the user wants speed / least filament)
+- Slicer: 0.28mm Extra Draft, 2 walls, 3 top / 2 bottom layers, Lightning infill 10%, printer
+  speed Sport (not Ludicrous). A 0.6 mm nozzle cuts time by roughly another third.
+- Design: shallow pockets (20–25 mm holds most things), low tiers and walls, no full base plates
+  under open frames, solid + lightning instead of long hollow-ribbed side-printed parts, and
+  3-line (1.26 mm) dividers where nothing is load-bearing.
 
 ## Gotchas you must check before handing over
 - Units are mm. If Bambu Studio asks "convert from inches/meters?", the export was wrong.

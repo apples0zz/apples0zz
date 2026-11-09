@@ -28,8 +28,8 @@ MOD_W, MOD_D = 184.0, 216.0         # 3 x 184 + 2 x 5 = 562 mm -> 9.5 mm side sl
 CORNER_R = 6.0
 
 # ---- slot blocks (sticks / tubes) ---------------------------------------------------
-BASE_H, STEP_H = 26.0, 12.0   # front tier height, rise per row toward the back
-HOLE_D = 40.0                 # max slot depth
+BASE_H, STEP_H = 23.0, 9.0    # front tier height, rise per row toward the back (kept low: less plastic)
+HOLE_D = 24.0                 # max slot depth (deep enough to hold, shallow enough to save plastic)
 EDGE = 2.4
 
 
@@ -82,7 +82,7 @@ def slot2d(shape):
 FRONT_LEDGE = 10.0  # flat strip in front of the first row; the module is only as deep as it needs
 
 
-def tiered_block(rows, width=MOD_W, depth=MOD_D):
+def tiered_block(rows, width=MOD_W, depth=MOD_D, base_h=BASE_H, step_h=STEP_H):
     """Stadium block: each row is a tier STEP_H higher than the one in front. Slots are packed
     SLOT_GAP apart and centred; rows sit ROW_GAP apart against the back, and any spare depth
     becomes a flat ledge at the front (handy for setting things down)."""
@@ -95,7 +95,7 @@ def tiered_block(rows, width=MOD_W, depth=MOD_D):
     y = ledge + ROW_GAP
     for i, (row, L) in enumerate(zip(rows, row_l)):
         y0 = y - ROW_GAP / 2 if i else 0
-        top = BASE_H + i * STEP_H
+        top = base_h + i * step_h
         tiers.append(rounded_box(width, depth - y0, top, r=CORNER_R, top_chamfer=0.8).translate((0, y0, 0)))
         cy = y + L / 2
         items = [s for s, n, _ in row for _ in range(n)]
@@ -106,7 +106,7 @@ def tiered_block(rows, width=MOD_W, depth=MOD_D):
         x = margin
         for s, lab in zip(items, labels):
             cx = x + s[1] / 2
-            d = s[3] or min(HOLE_D, top - 5.0)   # keep >= 5 mm under every slot (room for the foot sockets)
+            d = min(s[3] or HOLE_D, top - 5.0)   # keep >= 5 mm under every slot (room for the foot sockets)
             lead = Manifold.batch_hull([extrude(slot2d(s), 0.01).translate((cx, cy, top - 1.0)),
                                         extrude(slot2d(s).offset(1.0), 0.01).translate((cx, cy, top + 0.01))])
             cuts.append(extrude(slot2d(s), d + 1).translate((cx, cy, top - d)) + lead)
@@ -134,12 +134,12 @@ def foot_positions(m):
     return [(x0 + i, y0 + i), (x1 - i, y0 + i), (x0 + i, y1 - i), (x1 - i, y1 - i)]
 
 
-def add_sockets(m, boss_h=0.0):
-    """Cut 4 foot sockets into the bottom. boss_h > 0 first adds solid Ø(FOOT_D) bosses (for the
-    thin-floored racks) so each socket has plastic around it."""
-    pts = foot_positions(m)
-    if boss_h:
-        m = union(m, *[cyl(boss_h, FOOT_D).translate((x, y, 0)) for x, y in pts])
+def add_sockets(m, feet=None):
+    """Cut 4 foot sockets into the bottom. feet=[(x, y, pillar_h)] (racks) first adds solid
+    Ø(FOOT_D) pillars up to the slot floor above, so each socket has plastic around it."""
+    pts = foot_positions(m) if feet is None else [(x, y) for x, y, _ in feet]
+    if feet:
+        m = union(m, *[cyl(h, FOOT_D).translate((x, y, 0)) for x, y, h in feet])
     sock = union(*[cyl(SOCKET_H + 0.01, SOCKET_D).translate((x, y, -0.01)) for x, y in pts])
     # every socket must be fully surrounded by plastic (no breaking into a slot)
     shell = union(*[cyl(SOCKET_H + 1.0, SOCKET_D + 2.0).translate((x, y, 0)) for x, y in pts])
@@ -155,39 +155,27 @@ def foot():
     return pad + pin
 
 
-# ---- M4: bottle stairs (printed on its side: light, no supports) ------------------
-STAIRS = [(0, 72, 6), (72, 144, 40), (144, MOD_D, 74)]   # (y from, y to, step height)
-LIP, SHELL = 5.0, 2.4
+# ---- M4: bottle stairs (solid upright steps + lightning infill: light and fast) -----
+STAIRS = [(0, 72, 8), (72, 144, 40), (144, MOD_D, 72)]   # (y from, y to, step height)
+LIP, SHELL = 5.0, 1.68          # 4-line walls: plenty for bottles
 
 
 def bottle_stairs():
-    steps = [rect2d(MOD_D - y0, h).translate((y0, 0)) for y0, _, h in STAIRS]
-    prof = CrossSection.batch_boolean(steps + [rect2d(SHELL, LIP + 0.5).translate((y0, h - 0.5)) for y0, _, h in STAIRS], ADD)
-    inner = CrossSection.batch_boolean(steps, ADD).offset(-SHELL, JoinType.Miter)
-    ribs = [rect2d(SHELL, 200).translate((y0 - SHELL / 2, 0)) for y0, _, _ in STAIRS[1:]]
-    ribs += [rect2d(SHELL, 200).translate(((a + b) / 2 - SHELL / 2, 0)) for a, b, _ in STAIRS]
-    prof = prof - (inner - CrossSection.batch_boolean(ribs, ADD))
-    # built-in feet: lift the profile and add pads at the front & back (prints on its side, so no supports)
-    pad_l = 20.0
-    prof = prof.translate((0, FOOT_H)) + rect2d(pad_l, FOOT_H + 0.5).translate((0, 0)) \
-        + rect2d(pad_l, FOOT_H + 0.5).translate((MOD_D - pad_l, 0))
-    side = extrude(prof, MOD_W)                                       # print pose: profile on the bed
-    # keep only the 4 corner pads: cut the middle of each pad rail with 45° ends (no overhang)
-    a, b = pad_l, MOD_W - pad_l
-    cut = Manifold.batch_hull([box(MOD_D + 2, 0.01, b - a - 2 * FOOT_H).translate((-1, FOOT_H, a + FOOT_H)),
-                               box(MOD_D + 2, 0.01, b - a).translate((-1, 0, a)),
-                               box(MOD_D + 2, 0.01, b - a).translate((-1, -1, a))])   # exactly 45° ends
-    side = side - cut
-    use = place_on_bed(side.rotate((90, 0, 0)).rotate((0, 0, 90)), center=False)
-    return side, use
+    """Solid steps printed upright (lightning infill keeps them light). A low lip along the front
+    of each step stops bottles sliding off. Returns (print pose, in-use pose) - the same here."""
+    tiers = [rounded_box(MOD_W, MOD_D - y0, h, r=CORNER_R, top_chamfer=0.6).translate((0, y0, 0)) for y0, _, h in STAIRS]
+    lips = [rounded_box(MOD_W, SHELL, h + LIP, r=0.6, bottom_chamfer=0).translate((0, y0, 0)) for y0, _, h in STAIRS]
+    m = add_sockets(union(*tiers, *lips))
+    return m, m
 
 
 # ---- M5 / M6: compact racks ---------------------------------------------------------
 # Item: (label, width mm along the row, thickness mm). Width = longest side that stands on the
 # floor (diameter for rounds). Measured from the top-down photo; thickness estimated.
 FIT_T, FIT_W = 4.0, 6.0      # slot = thickness + 4; each item gets width + 6
-DIV = 1.68                   # divider / rib thickness (4 lines)
-RACK_BASE, RACK_STEP, HOLD = 4.0, 5.0, 26.0   # floor heights; divider height above its floor
+DIV = 1.26                   # divider / rib thickness (3 lines: stiff enough, less plastic)
+FLOOR_T = 1.2                # slot floor thickness
+RACK_BASE, RACK_STEP, HOLD = 4.0, 4.0, 18.0   # floor heights; divider height above its floor (low = less plastic)
 BRIDGE_MAX = 26.0            # wider floors get a support wall underneath (no sagging bridges)
 
 THIN_RACK = [   # M5, front -> back (shortest items in front)
@@ -223,8 +211,8 @@ def compact_rack(rows, side=None, width=MOD_W, depth=MOD_D, fit_t=FIT_T):
         sw = t + fit_t
         # open at the front (only a back stop), so a tin a little longer than measured still fits
         assert L <= depth - DIV + 10, "side slot too long"
-        parts += [box(DIV, depth, RACK_BASE + 40), box(DIV, depth, RACK_BASE + 40).translate((sw + DIV, 0, 0)),
-                  box(sw + 2 * DIV, DIV, RACK_BASE + 40).translate((0, depth - DIV, 0)),
+        parts += [box(DIV, depth, RACK_BASE + 28), box(DIV, depth, RACK_BASE + 28).translate((sw + DIV, 0, 0)),
+                  box(sw + 2 * DIV, DIV, RACK_BASE + 28).translate((0, depth - DIV, 0)),
                   box(sw, depth, RACK_BASE).translate((DIV, 0, 0))]
         layout.append(("side", lab, DIV + sw / 2, depth / 2, sw, L))
         x0 = sw + DIV
@@ -234,31 +222,36 @@ def compact_rack(rows, side=None, width=MOD_W, depth=MOD_D, fit_t=FIT_T):
     assert rack_d <= depth, f"rack {rack_d:.0f} mm > {depth}"
     yoff = (depth - rack_d) / 2
     y = yoff
+    centres = []
     for k, (row, sw) in enumerate(zip(rows, slots)):
         fz = RACK_BASE + k * RACK_STEP
         need = sum(w + FIT_W for _, w, _ in row) + DIV * (len(row) + 1)
         assert need <= row_w + 0.01, f"row {k} needs {need:.0f} mm > {row_w:.0f}"
         # front divider of this slot, and the floor
         parts.append(box(row_w, DIV, fz + HOLD).translate((x0, y, 0)))
-        parts.append(box(row_w, sw + 0.2, 1.6).translate((x0, y + DIV - 0.1, fz - 1.6)))
+        parts.append(box(row_w, sw + 0.2, FLOOR_T).translate((x0, y + DIV - 0.1, fz - FLOOR_T)))
         if sw > BRIDGE_MAX:   # support wall under wide floors keeps every bridge short
-            parts.append(box(row_w, DIV, fz - 1.6).translate((x0, y + DIV + sw / 2 - DIV / 2, 0)))
+            parts.append(box(row_w, DIV, fz - FLOOR_T).translate((x0, y + DIV + sw / 2 - DIV / 2, 0)))
         # side cheeks + ribs between items (each item gets an equal share of spare width)
         spare = (row_w - need) / len(row)
         x = x0
-        parts.append(box(DIV, sw + 2 * DIV, fz + 14).translate((x, y, 0)))
+        parts.append(box(DIV, sw + 2 * DIV, fz + 8).translate((x, y, 0)))
         for lab, w, t in row:
             cell = w + FIT_W + spare
             layout.append(("row", lab, x + DIV + cell / 2, y + DIV + sw / 2, cell, sw))
             x += DIV + cell
-            parts.append(box(DIV, sw + 2 * DIV, fz + 14).translate((x, y, 0)))
+            parts.append(box(DIV, sw + 2 * DIV, fz + 8).translate((x, y, 0)))
+        centres.append((y + DIV + sw / 2, fz))
         y += DIV + sw
     # back wall
     fz_last = RACK_BASE + (len(rows) - 1) * RACK_STEP
-    parts.append(box(row_w, DIV, fz_last + HOLD + 10).translate((x0, y, 0)))
-    # base strip so the whole footprint is one stable piece
-    parts.append(box(width, depth, 1.2) if side else box(row_w, rack_d, 1.2).translate((x0, yoff, 0)))
-    return union(*parts), layout, rack_d
+    parts.append(box(row_w, DIV, fz_last + HOLD + 4).translate((x0, y, 0)))
+    # no base plate (saves ~60 g): feet sit on pillars that rise to the floor of the first & last slot
+    feet = []
+    for cy, fz in (centres[0], centres[-1]):
+        for fx in (FOOT_INSET, width - FOOT_INSET):
+            feet.append((fx, cy, RACK_BASE if fx < x0 else fz))
+    return union(*parts), layout, rack_d, feet
 
 
 DEPTHS = {}
@@ -324,11 +317,11 @@ def build():
     for name, rows in BLOCKS.items():
         blk, layouts[name] = tiered_block(rows)
         mods[name] = add_sockets(blk)
-    print_pose["M4_bottle_stairs"], mods["M4_bottle_stairs"] = bottle_stairs()   # feet built in
-    m5, layouts["M5_thin_compacts"], _ = compact_rack(THIN_RACK, side=THIN_SIDE)
-    m6, layouts["M6_thick_compacts"], _ = compact_rack(THICK_RACK, fit_t=FIT_T + 2)  # jars get extra room
-    mods["M5_thin_compacts"] = add_sockets(m5, boss_h=RACK_BASE)
-    mods["M6_thick_compacts"] = add_sockets(m6, boss_h=RACK_BASE)
+    print_pose["M4_bottle_stairs"], mods["M4_bottle_stairs"] = bottle_stairs()
+    m5, layouts["M5_thin_compacts"], _, f5 = compact_rack(THIN_RACK, side=THIN_SIDE)
+    m6, layouts["M6_thick_compacts"], _, f6 = compact_rack(THICK_RACK, fit_t=FIT_T + 2)  # jars get extra room
+    mods["M5_thin_compacts"] = add_sockets(m5, f5)
+    mods["M6_thick_compacts"] = add_sockets(m6, f6)
     return mods, layouts, print_pose
 
 
@@ -344,7 +337,7 @@ if __name__ == "__main__":
                                                                           "sparse_infill_density": "10%"})])
         export_stl(OUT / f"{name}.stl", printed)
         preview(OUT / f"{name}.png", m)
-    n_feet = 4 * (len(mods) - 1) + 4          # 4 per module (M4 has its own) + 4 spares
+    n_feet = 4 * len(mods) + 4                # 4 per module + 4 spares
     cols_n = 6
     feet = union(*[foot().translate(((i % cols_n) * (FOOT_D + 6), (i // cols_n) * (FOOT_D + 6), 0)) for i in range(n_feet)])
     r = report(feet, MAT, infill=1.0, name=f"feet_x{n_feet}")
@@ -358,9 +351,9 @@ if __name__ == "__main__":
     sticks, _ = tiered_block([[(C(13), 1, ""), (C(17), 1, ""), (C(22), 1, ""), (C(24), 1, ""), (C(26), 1, ""), (C(28), 1, "")],
                               [(R(32, 24), 1, ""), (R(36, 20), 1, ""), (C(34), 1, "")],
                               [(R(46, 34), 1, ""), (R(29, 58), 1, "")]],
-                             width=MOD_W, depth=140)
+                             width=MOD_W, depth=140, base_h=14.0, step_h=0.0)   # low: fit test only
     widths = [13, 15, 18, 22, 32, 38]   # NARS/W7 · most powders · sun club · Glossier quad · TIRTIR · Morphe jar
-    mini, _, mini_d = compact_rack([[("", 40, t)] for t in widths], width=60, depth=200)
+    mini, _, mini_d, _ = compact_rack([[("", 40, t)] for t in widths], width=60, depth=200)
     sticks = add_sockets(sticks)   # test the foot press-fit too
     report(sticks, MAT, infill=0.08, name="00_sampler_sticks")
     report(mini, MAT, infill=0.08, name="00_sampler_compact_slots")
