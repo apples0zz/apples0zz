@@ -358,12 +358,18 @@ if __name__ == "__main__":
     report(sticks, MAT, infill=0.08, name="00_sampler_sticks")
     report(mini, MAT, infill=0.08, name="00_sampler_compact_slots")
     print("  compact sampler slot thicknesses (front→back):", [t + FIT_T for t in widths])
-    export_3mf(OUT / "00_fit_test_sampler.3mf", [Part("stick slots", sticks, 1),
-                                                 Part("compact slots", mini.translate((MOD_W + 10, 0, 0)), 1),
-                                                 Part("test feet", union(*[foot().translate((MOD_W + 90 + 20 * i, 20, 0))
-                                                                           for i in range(4)]), 1)],
-               separate_objects=True)
-    preview(OUT / "00_fit_test_sampler.png", [sticks, mini.translate((MOD_W + 10, 0, 0))])
+    def to(m, x, y):   # move a part so its min corner sits at (x, y)
+        b = m.bounding_box()
+        return m.translate((x - b[0], y - b[1], -b[2]))
+    # stack the three pieces front-to-back so they all fit on one 256 mm plate
+    sampler = [Part("stick slots", to(sticks, 0, 0), 1),
+               Part("compact slots", to(mini.rotate((0, 0, 90)), 5, 140 + 6), 1),
+               Part("test feet", to(union(*[foot().translate((22 * i, 0, 0)) for i in range(4)]), 5, 140 + 6 + 60 + 6), 1)]
+    bb = union(*[p.solid for p in sampler]).bounding_box()
+    assert bb[3] - bb[0] <= 250 and bb[4] - bb[1] <= 250, f"sampler doesn't fit the plate: {bb}"
+    print(f"  sampler plate footprint: {bb[3] - bb[0]:.0f} x {bb[4] - bb[1]:.0f} mm")
+    export_3mf(OUT / "00_fit_test_sampler.3mf", sampler, separate_objects=True)
+    preview(OUT / "00_fit_test_sampler.png", [p.solid for p in sampler])
 
     shelf = lambda names: [mods[n].translate(((MOD_W + GAP) * i, MOD_D - mods[n].bounding_box()[4], 0))  # noqa: E731
                            for i, n in enumerate(names)]
