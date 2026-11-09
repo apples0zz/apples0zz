@@ -1,6 +1,6 @@
-"""Bathroom makeup organizer - 6 modules for two shelves, 22.5" x 8.75" measured INSIDE the rims.
+"""Bathroom makeup organizer - 6 modules + press-in feet for two shelves, 22.5" x 8.75" measured INSIDE the rims.
 
-  Shelf 1 - sticks:   M1 Eyes | M2 Lips & concealer | M3 Cheek sticks & tubes   (slot blocks)
+  Shelf 1 - sticks:   M1 Eyes & lips | M2 Cheeks & tubes | M3 Brushes, sponges & puffs  (slot blocks)
   Shelf 2 - face:     M4 Bottle stairs | M5 Thin compacts rack | M6 Thick compacts & jars rack
 
 Every flat product (compacts, palettes, pans, jars) stands ON ITS SIDE in a slot sized to that
@@ -33,12 +33,12 @@ HOLE_D = 40.0                 # max slot depth
 EDGE = 2.4
 
 
-def C(d):            # round slot, Ø d
-    return ("c", d, d)
+def C(d, depth=None, drain=0.0):   # round slot, Ø d (optional fixed depth, drain hole to the shelf)
+    return ("c", d, d, depth, drain)
 
 
-def R(w, l):         # rounded-rectangle slot, w across x l deep
-    return ("r", w, l)
+def R(w, l, depth=None):           # rounded-rectangle slot, w across x l deep
+    return ("r", w, l, depth, 0.0)
 
 
 # rows FRONT -> BACK; each row = list of (shape, count, label)
@@ -61,11 +61,19 @@ BLOCKS = {
         [(R(32, 24), 3, "about-face stick"), (R(46, 34), 1, "Pixi stick")],
         [(R(29, 58), 5, "squeeze tube, cap down")],            # wnw Impossible, SPF 50, Anua, LM Pure Canvas + 1 spare
     ],
+    "M3_brushes_sponges_puffs": [
+        [(R(84, 20, depth=20), 2, "powder puff (stand on edge)")],   # velour puffs (2-3 seen) + 1 spare
+        [(R(84, 20, depth=24), 2, "powder puff (stand on edge)")],
+        [(C(50, depth=22, drain=12), 3, "sponge cup (air hole underneath)")],   # orange blender, pink sponge + 1 spare
+        [(C(26), 3, "big brush / kabuki"), (C(15), 4, "brush")],     # ~15 brushes -> 26 holes, room to grow
+        [(C(15), 9, "brush")],
+        [(C(12), 10, "thin / detail brush")],
+    ],
 }
 
 
 def slot2d(shape):
-    k, w, l = shape
+    k, w, l = shape[:3]
     if k == "r":
         return rect2d(w, l, min(8.0, w / 2 - 0.5, l / 2 - 0.5)).translate((-w / 2, -l / 2))
     return circle2d(w)
@@ -98,14 +106,53 @@ def tiered_block(rows, width=MOD_W, depth=MOD_D):
         x = margin
         for s, lab in zip(items, labels):
             cx = x + s[1] / 2
-            d = min(HOLE_D, top - 2.0)
+            d = s[3] or min(HOLE_D, top - 5.0)   # keep >= 5 mm under every slot (room for the foot sockets)
             lead = Manifold.batch_hull([extrude(slot2d(s), 0.01).translate((cx, cy, top - 1.0)),
                                         extrude(slot2d(s).offset(1.0), 0.01).translate((cx, cy, top + 0.01))])
             cuts.append(extrude(slot2d(s), d + 1).translate((cx, cy, top - d)) + lead)
+            if s[4]:   # drain / air hole down to the shelf (damp sponges & brushes dry from below)
+                cuts.append(cyl(top + 2, s[4]).translate((cx, cy, -1)))
             layout.append((s, cx, cy, lab))
             x += s[1] + SLOT_GAP
         y += L + ROW_GAP
     return union(*tiers) - union(*cuts), layout
+
+
+# ---- little feet ------------------------------------------------------------------------
+# Separate press-in feet: a flat body bottom is the only way to print the modules without
+# supports, so the feet are printed on their own plate and pushed into sockets underneath.
+FOOT_D, FOOT_H = 14.0, 3.0           # foot pad: Ø14 x 3 mm (lifts every module 3 mm)
+SOCKET_D, SOCKET_H = 6.0, 3.0        # socket in the module bottom
+PIN_D = SOCKET_D - 2 * 0.05          # 0.05 mm/side: tight press fit (add a drop of glue if loose)
+PIN_H = SOCKET_H - 0.3
+FOOT_INSET = 14.0                    # foot centre from the module's edges
+
+
+def foot_positions(m):
+    x0, y0, _, x1, y1, _ = m.bounding_box()
+    i = FOOT_INSET
+    return [(x0 + i, y0 + i), (x1 - i, y0 + i), (x0 + i, y1 - i), (x1 - i, y1 - i)]
+
+
+def add_sockets(m, boss_h=0.0):
+    """Cut 4 foot sockets into the bottom. boss_h > 0 first adds solid Ø(FOOT_D) bosses (for the
+    thin-floored racks) so each socket has plastic around it."""
+    pts = foot_positions(m)
+    if boss_h:
+        m = union(m, *[cyl(boss_h, FOOT_D).translate((x, y, 0)) for x, y in pts])
+    sock = union(*[cyl(SOCKET_H + 0.01, SOCKET_D).translate((x, y, -0.01)) for x, y in pts])
+    # every socket must be fully surrounded by plastic (no breaking into a slot)
+    shell = union(*[cyl(SOCKET_H + 1.0, SOCKET_D + 2.0).translate((x, y, 0)) for x, y in pts])
+    assert abs((shell ^ m).volume() - shell.volume()) < 1.0, "a foot socket breaks into a slot - move it"
+    return m - sock
+
+
+def foot():
+    pad = Manifold.batch_hull([cyl(0.01, FOOT_D - 1.0), cyl(0.01, FOOT_D).translate((0, 0, 0.5))]) \
+        + cyl(FOOT_H - 0.5, FOOT_D).translate((0, 0, 0.5))
+    pin = cyl(PIN_H - 0.4, PIN_D).translate((0, 0, FOOT_H)) + \
+        cyl(0.4, PIN_D, PIN_D - 0.8).translate((0, 0, FOOT_H + PIN_H - 0.4))   # chamfered tip finds the socket
+    return pad + pin
 
 
 # ---- M4: bottle stairs (printed on its side: light, no supports) ------------------
@@ -120,7 +167,17 @@ def bottle_stairs():
     ribs = [rect2d(SHELL, 200).translate((y0 - SHELL / 2, 0)) for y0, _, _ in STAIRS[1:]]
     ribs += [rect2d(SHELL, 200).translate(((a + b) / 2 - SHELL / 2, 0)) for a, b, _ in STAIRS]
     prof = prof - (inner - CrossSection.batch_boolean(ribs, ADD))
+    # built-in feet: lift the profile and add pads at the front & back (prints on its side, so no supports)
+    pad_l = 20.0
+    prof = prof.translate((0, FOOT_H)) + rect2d(pad_l, FOOT_H + 0.5).translate((0, 0)) \
+        + rect2d(pad_l, FOOT_H + 0.5).translate((MOD_D - pad_l, 0))
     side = extrude(prof, MOD_W)                                       # print pose: profile on the bed
+    # keep only the 4 corner pads: cut the middle of each pad rail with 45° ends (no overhang)
+    a, b = pad_l, MOD_W - pad_l
+    cut = Manifold.batch_hull([box(MOD_D + 2, 0.01, b - a - 2 * FOOT_H).translate((-1, FOOT_H, a + FOOT_H)),
+                               box(MOD_D + 2, 0.01, b - a).translate((-1, 0, a)),
+                               box(MOD_D + 2, 0.01, b - a).translate((-1, -1, a))])   # exactly 45° ends
+    side = side - cut
     use = place_on_bed(side.rotate((90, 0, 0)).rotate((0, 0, 90)), center=False)
     return side, use
 
@@ -213,10 +270,10 @@ def spot_map(path, layouts):
     import matplotlib.pyplot as plt
     from matplotlib.patches import Circle, FancyBboxPatch, Rectangle
 
-    shelves = [("Shelf 1: sticks & tubes", ["M1_eyes_lips", "M2_cheeks_tubes", None]),
+    shelves = [("Shelf 1: sticks & tubes", ["M1_eyes_lips", "M2_cheeks_tubes", "M3_brushes_sponges_puffs"]),
                ("Shelf 2: face", ["M4_bottle_stairs", "M5_thin_compacts", "M6_thick_compacts"])]
     cats, palette = {}, plt.get_cmap("tab20").colors
-    fig, axes = plt.subplots(2, 1, figsize=(15, 13.5))
+    fig, axes = plt.subplots(2, 1, figsize=(15, 15.5))
     for ax, (title, names) in zip(axes, shelves):
         ax.add_patch(Rectangle((0, 0), SHELF_W, SHELF_D, fill=False, lw=2, ls="--", ec="#999"))
         for j, name in enumerate(names):
@@ -245,7 +302,8 @@ def spot_map(path, layouts):
                         ax.add_patch(Rectangle((ox + cx - w / 2, oy + cy - l / 2), w, l, fc=c, ec="k", lw=.5))
                         ax.text(ox + cx, oy + cy, lab, ha="center", va="center", fontsize=5.6, wrap=True)
                 continue
-            for (k, w, l), cx, cy, lab in layouts[name]:
+            for shp, cx, cy, lab in layouts[name]:
+                k, w, l = shp[:3]
                 c = cats.setdefault(lab, palette[len(cats) % 20])
                 if k == "r":
                     ax.add_patch(FancyBboxPatch((ox + cx - w / 2, oy + cy - l / 2), w, l,
@@ -256,7 +314,7 @@ def spot_map(path, layouts):
         ax.set_title(title + "   (bottom edge = front of shelf)", fontsize=13)
     handles = [Rectangle((0, 0), 1, 1, fc=c) for c in cats.values()]
     fig.legend(handles, list(cats), loc="lower center", ncol=3, fontsize=9, frameon=False)
-    fig.subplots_adjust(bottom=0.1, hspace=0.12)
+    fig.subplots_adjust(bottom=0.17, top=0.97, hspace=0.1)
     fig.savefig(path, dpi=110)
     plt.close(fig)
 
@@ -264,10 +322,13 @@ def spot_map(path, layouts):
 def build():
     mods, layouts, print_pose = {}, {}, {}
     for name, rows in BLOCKS.items():
-        mods[name], layouts[name] = tiered_block(rows)
-    print_pose["M4_bottle_stairs"], mods["M4_bottle_stairs"] = bottle_stairs()
-    mods["M5_thin_compacts"], layouts["M5_thin_compacts"], _ = compact_rack(THIN_RACK, side=THIN_SIDE)
-    mods["M6_thick_compacts"], layouts["M6_thick_compacts"], _ = compact_rack(THICK_RACK, fit_t=FIT_T + 2)  # jars get extra room
+        blk, layouts[name] = tiered_block(rows)
+        mods[name] = add_sockets(blk)
+    print_pose["M4_bottle_stairs"], mods["M4_bottle_stairs"] = bottle_stairs()   # feet built in
+    m5, layouts["M5_thin_compacts"], _ = compact_rack(THIN_RACK, side=THIN_SIDE)
+    m6, layouts["M6_thick_compacts"], _ = compact_rack(THICK_RACK, fit_t=FIT_T + 2)  # jars get extra room
+    mods["M5_thin_compacts"] = add_sockets(m5, boss_h=RACK_BASE)
+    mods["M6_thick_compacts"] = add_sockets(m6, boss_h=RACK_BASE)
     return mods, layouts, print_pose
 
 
@@ -283,6 +344,14 @@ if __name__ == "__main__":
                                                                           "sparse_infill_density": "10%"})])
         export_stl(OUT / f"{name}.stl", printed)
         preview(OUT / f"{name}.png", m)
+    n_feet = 4 * (len(mods) - 1) + 4          # 4 per module (M4 has its own) + 4 spares
+    cols_n = 6
+    feet = union(*[foot().translate(((i % cols_n) * (FOOT_D + 6), (i // cols_n) * (FOOT_D + 6), 0)) for i in range(n_feet)])
+    r = report(feet, MAT, infill=1.0, name=f"feet_x{n_feet}")
+    total += r["est_filament_g"]
+    export_3mf(OUT / "M0_feet.3mf", [Part(f"{n_feet} feet", feet, 1)])
+    export_stl(OUT / "M0_feet.stl", feet)
+    preview(OUT / "M0_feet.png", feet, elev=40)
     print(f"\nTOTAL ≈ {total:.0f} g PLA")
 
     # fit-test sampler: every stick slot size + a mini rack with every compact slot thickness
@@ -292,18 +361,21 @@ if __name__ == "__main__":
                              width=MOD_W, depth=140)
     widths = [13, 15, 18, 22, 32, 38]   # NARS/W7 · most powders · sun club · Glossier quad · TIRTIR · Morphe jar
     mini, _, mini_d = compact_rack([[("", 40, t)] for t in widths], width=60, depth=200)
+    sticks = add_sockets(sticks)   # test the foot press-fit too
     report(sticks, MAT, infill=0.08, name="00_sampler_sticks")
     report(mini, MAT, infill=0.08, name="00_sampler_compact_slots")
     print("  compact sampler slot thicknesses (front→back):", [t + FIT_T for t in widths])
     export_3mf(OUT / "00_fit_test_sampler.3mf", [Part("stick slots", sticks, 1),
-                                                 Part("compact slots", mini.translate((MOD_W + 10, 0, 0)), 1)],
+                                                 Part("compact slots", mini.translate((MOD_W + 10, 0, 0)), 1),
+                                                 Part("test feet", union(*[foot().translate((MOD_W + 90 + 20 * i, 20, 0))
+                                                                           for i in range(4)]), 1)],
                separate_objects=True)
     preview(OUT / "00_fit_test_sampler.png", [sticks, mini.translate((MOD_W + 10, 0, 0))])
 
     shelf = lambda names: [mods[n].translate(((MOD_W + GAP) * i, MOD_D - mods[n].bounding_box()[4], 0))  # noqa: E731
                            for i, n in enumerate(names)]
     cols = ["#f9a8d4", "#fbcfe8", "#f472b6"]
-    preview(OUT / "shelf1_preview.png", shelf(["M1_eyes_lips", "M2_cheeks_tubes"]), colors=cols, elev=35, azim=-75)
+    preview(OUT / "shelf1_preview.png", shelf(["M1_eyes_lips", "M2_cheeks_tubes", "M3_brushes_sponges_puffs"]), colors=cols, elev=35, azim=-75)
     preview(OUT / "shelf2_preview.png", shelf(["M4_bottle_stairs", "M5_thin_compacts", "M6_thick_compacts"]), colors=cols, elev=35, azim=-75)
     DEPTHS.update({n: mods[n].bounding_box()[4] for n in BLOCKS})
     spot_map(OUT / "spot_map.png", layouts)

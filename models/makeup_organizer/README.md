@@ -1,4 +1,4 @@
-# Bathroom makeup organizer: 2 shelves, 5 modules
+# Bathroom makeup organizer: 2 shelves, 6 modules + little feet
 
 Shelves: **22.5" × 8.75" measured inside the rims** (572 × 222 mm). Each shelf takes three
 modules of 184 × 216 mm (7.2" × 8.5"), which leaves about ⅜" of play side to side and ¼" front
@@ -7,13 +7,13 @@ goes where.
 
 ## Shelf 1: sticks & tubes (stand upright in slots, back rows higher)
 Slots are packed about 5 mm apart (about 3 mm of plastic between items). Each block is only as deep as
-its rows need and sits against the back of the shelf. That leaves the **right third of shelf 1
-open** for brushes and sponges.
+its rows need and sits against the back of the shelf.
 
 | Module | Holds (front → back) |
 |---|---|
 | **M1 eyes & lips** (182 mm deep, 86 mm tall at back) | 5 mascaras · beige stick + Glossier brow gel + 4 chunky eye sticks · 10 pencils/liners/brow · 3 flat tubes + 1 gloss · 4 concealers + 2 glosses · 6 glosses (9 lip items in total) |
 | **M2 cheeks & tubes** (156 mm deep, 50 mm tall) | 3 liquid blushes/wands + 2 Fenty hex sticks · 3 about-face + Pixi stick · 5 squeeze tubes cap-down (4 + 1 spare) |
+| **M3 brushes, sponges & puffs** (188 mm deep, 86 mm tall at back) | 4 powder puff slots, standing on edge (84 × 20 mm) · 3 sponge cups Ø50 with an air hole underneath so damp sponges dry · 26 brush holes: 3 big/kabuki Ø26, 13 regular Ø15, 10 thin/detail Ø12 (room for ~15 brushes plus growth) |
 
 ## Shelf 2: face
 | Module | Holds |
@@ -53,12 +53,22 @@ Every slot is **thickness + 4 mm** (jars + 6 mm) so things slide in easily.
 
 Earlier I had counted 9 compacts and listed the Charlotte Tilbury twice. The real count is 21.
 
+## Little feet
+Every module stands on 4 little feet that lift it 3 mm. The modules have to print with a flat
+bottom, or they'd need supports, so the feet are printed separately:
+- `M0_feet.3mf`: 24 feet on one plate (20 + 4 spares), about 16 g and 30 min. Each is a Ø14 × 3 mm
+  pad with a pin that **presses into the sockets under each module**. If one feels loose, add a
+  drop of superglue. TPU feet also work (grippier on a wet shelf); use the same file.
+- The bottle stairs (M4) have their feet built in, since that part prints on its side.
+- The lift also lets air under the sponge cups, so sponges dry from below.
+
 ## Print order
-1. **`00_fit_test_sampler.3mf`** (about 3 h, ~190 g). It has one of every stick slot, plus a
+1. **`00_fit_test_sampler.3mf`** (about 3 h, ~190 g). It has one of every stick slot, 4 test feet
+   with sockets to try the press fit, plus a
    mini rack with compact slots of 17 / 19 / 22 / 26 / 36 / 42 mm. Test it with the NARS blush,
    the H&M palette, the sun club bronzer, the Glossier quad, the TIRTIR and the Morphe jar. If
    anything is tight or loose, tell me which item and I'll change its number.
-2. Then the five modules, in any order.
+2. `M0_feet.3mf`, then the six modules, in any order.
 
 ## Bambu Studio recipe (all parts)
 ```
@@ -74,6 +84,6 @@ Door/lid:  open a little for PLA
   get a support wall underneath), which the P1S prints cleanly without supports. Ignore
   the overhang warning in Bambu Studio for these.
 
-Estimated total about 0.86 kg PLA plus the sampler (~190 g). Bambu Studio shows the exact amount when you slice.
+Estimated total about 1.1 kg PLA plus the sampler (~190 g). Bambu Studio shows the exact amount when you slice.
 
 Regenerate after changing a number: `python3 models/makeup_organizer/generate.py`
