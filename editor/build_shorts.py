@@ -31,7 +31,7 @@ def build(p, name, cfg):
     args, fc = [], []
     zooms = cfg.get("zooms", [])
     for i, (src, a, b, layout, os_, cx) in enumerate(segs):
-        args += ["-ss", f"{a:.4f}", "-t", f"{b-a:.4f}", "-i", C.src_path(p, src)]
+        args += ["-ss", f"{a:.4f}", "-t", f"{b-a:.4f}"] + C.input_args(p, src)
         if layout == "wide":  # both faces: landscape strip over a blurred fill
             fc.append(f"[{i}:v]fps=30000/1001,scale=1920:1080,setsar=1,split[w{i}a][w{i}b];"
                       f"[w{i}a]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,boxblur=30:2,eq=brightness=-0.15[bg{i}];"

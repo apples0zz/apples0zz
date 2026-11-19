@@ -99,7 +99,7 @@ def plan(p):
     # ---------------- filtergraph ----------------
     fc, args = [], []
     for ci, (key, keep) in enumerate(T.chains):
-        args += ["-i", C.src_path(p, key)]
+        args += C.input_args(p, key)
         sel = "+".join(f"between(t,{a-HALF:.4f},{b-HALF:.4f})" for a, b in keep)
         asel = "+".join(f"between(t,{a:.4f},{b:.4f})" for a, b in keep)
         blocks = []

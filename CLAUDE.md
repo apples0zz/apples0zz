@@ -63,6 +63,8 @@ Each video gets its own settings file in `projects/<video>/project.py`. Read thi
 ## Notes and gotchas
 - Footage is iPhone HEVC. Some clips are stored rotated, and ffmpeg auto-rotates them, which is fine.
   Normalize everything to 1920x1080 at 29.97 fps.
+- **Top-down shots filmed with the phone lying flat** get tagged as portrait and come out sideways. Look at the
+  contact sheets: if the table is sideways, set `"ignore_rotation": True` on that source (it adds `-noautorotate`).
 - Jump-cut video selects use half-open frame ranges (`HALF` in `common.py`) so audio and picture stay in sync over hundreds of cuts.
 - Don't `split` a source that's used twice in the timeline. Each timeline piece opens its own input (it saves memory).
 - Graphics are drawn by PIL as transparent qtrle clips and layered with `setpts=PTS+t/TB`, `overlay` and `eof_action=pass`.

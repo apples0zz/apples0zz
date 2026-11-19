@@ -29,6 +29,13 @@ def src_path(p, key):
     return os.path.join(p["work"], "src", p["sources"][key]["file"])
 
 
+def input_args(p, key):
+    """ffmpeg input args for a source. "ignore_rotation": True is for clips filmed top-down with the phone lying
+    flat: iPhone tags those as portrait and they come out sideways unless the rotation tag is ignored."""
+    pre = ["-noautorotate"] if p["sources"][key].get("ignore_rotation") else []
+    return pre + ["-i", src_path(p, key)]
+
+
 def analysis(p, key, kind):
     """kind: wav | sil | words | f0"""
     ext = {"wav": ".wav", "sil": "_sil.tsv", "words": "_words.json", "f0": "_f0.npy"}[kind]

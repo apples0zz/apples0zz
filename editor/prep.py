@@ -89,7 +89,7 @@ def sheets(p, key):
     dur = float(subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", C.src_path(p, key)],
                                capture_output=True, text=True).stdout)
     step = max(2, dur / 30)
-    sh("ffmpeg", "-v", "error", "-y", "-i", C.src_path(p, key), "-vf", f"fps=1/{step:.2f},scale=320:-1,tile=6x5", "-frames:v", "1", out)
+    sh("ffmpeg", "-v", "error", "-y", *C.input_args(p, key), "-vf", f"fps=1/{step:.2f},scale=320:-1,tile=6x5", "-frames:v", "1", out)
 
 
 if __name__ == "__main__":
