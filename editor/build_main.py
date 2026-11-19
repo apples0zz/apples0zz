@@ -4,7 +4,7 @@
     python3 editor/build_main.py <project> --test 40  # render the first 40 s to check the look
     python3 editor/build_main.py <project>            # full render + 1080p (<400 MB) and 720p delivery copies
 """
-import json, os, subprocess, sys, wave
+import json, os, re, subprocess, sys, wave
 import numpy as np
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import common as C
@@ -93,6 +93,11 @@ def plan(p):
         if a is None or b - a < 0.4: continue
         busy = any(not (b < x or a > y) for x, y in card_windows)
         jobs.append(("hype", (f"{EL}/cap{i}.mov", txt, b - a), {}, a, "(W-w)/2-230" if busy else "(W-w)/2", "-10"))
+    for ci, tz in enumerate(T.teaser):
+        if tz and T.chains[ci][1]:
+            a = T.chain_start[ci]
+            d = sum(y - x for x, y in T.chains[ci][1])
+            jobs.append(("hype", (f"{EL}/teaser{ci}.mov", tz if isinstance(tz, str) else "COMING UP...", min(d, 4.0)), {}, a, "(W-w)/2", "-10"))
     for i, (src, sa, sb, txt) in enumerate(p.get("tags", [])):
         a, b = at(src, sa), at(src, sb)
         jobs.append(("tag", (f"{EL}/tag{i}.mov", txt, b - a), {}, a, "0", "H-h-50"))
@@ -157,9 +162,20 @@ def plan(p):
                 if snd and ot is not None and ot - last[snd] > (20 if snd == "scratch" else 8):
                     place(ot, snd, {"kaching": 0.4, "scratch": 0.28, "boing": 0.4}[snd]); last[snd] = ot
     mute = []
-    for src, a, b in p.get("bleeps", []):
-        oa, ob = at(src, a), at(src, b)
-        place(oa, sfxlib.bleep(ob - oa), 0.22); mute.append((oa, ob))
+    bleeps = list(p.get("bleeps", []))
+    if p.get("auto_bleep"):   # every swear in the transcripts, padded a little
+        for key in p["sources"]:
+            if os.path.exists(C.analysis(p, key, "words")):
+                for a_, b_, w, prob in json.load(open(C.analysis(p, key, "words"))):
+                    if re.sub(r"[^a-z']", "", w.lower()) in subs.CENSOR:
+                        bleeps.append((key, a_ - 0.03, b_ + 0.03))
+    for src, a, b in bleeps:
+        for ci, (k, keep) in enumerate(T.chains):
+            if k != src: continue
+            for c_, s_, x, y, os_ in T.segs:
+                if c_ == ci and x <= a <= y:
+                    oa = os_ + (a - x) / T.speed[ci]; ob = os_ + (min(b, y) - x) / T.speed[ci]
+                    place(oa, sfxlib.bleep(max(0.05, ob - oa)), 0.22); mute.append((oa, ob))
     sfx_wav = os.path.join(W, "out", "sfx_track.wav")
     music.write_wav(sfx_wav, np.repeat(np.clip(track, -1, 1)[:, None], 2, axis=1))
 

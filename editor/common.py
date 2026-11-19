@@ -81,6 +81,7 @@ class Timeline:
         pad = p.get("pause_pad", 0.12) if pad is None else pad
         self.chains = []  # (src_key, keep_ranges)
         self.speed = []
+        self.teaser = []
         for piece in pieces:
             key, lo, hi = piece[0], piece[1], piece[2]
             extra = list(piece[3:])
@@ -89,6 +90,7 @@ class Timeline:
             protect += [tuple(w) for w in p.get("protect", {}).get(key, [])]
             self.chains.append((key, tighten(lo, hi, silences(p, key), pad, protect)))
             self.speed.append(float(opts.get("speed", 1)))
+            self.teaser.append(opts.get("teaser"))   # a cold-open preview of footage that also appears later
         self.segs = []  # (chain_idx, src_key, a, b, out_start)
         o = 0.0
         for ci, (key, keep) in enumerate(self.chains):
@@ -107,10 +109,19 @@ class Timeline:
             self.chain_start.setdefault(ci, os_)
 
     def chain_of(self, key, t):
+        """the timeline piece that shows source time t (teasers are skipped: events belong to the real moment)."""
         for ci, (k, keep) in enumerate(self.chains):
-            if k == key and keep and keep[0][0] - 0.5 <= t <= keep[-1][1] + 0.5:
+            if k == key and keep and not self.teaser[ci] and keep[0][0] - 0.5 <= t <= keep[-1][1] + 0.5:
                 return ci
         return None
+
+    def at_all(self, key, t):
+        """every edit time showing source time t, teasers included (for bleeps)."""
+        out = []
+        for c, s, a, b, os_ in self.segs:
+            if s == key and a <= t <= b:
+                out.append(os_ + (t - a) / self.speed[c])
+        return out
 
     def at(self, key, t):
         """source time -> edit time (snaps forward into the next kept range if t was cut)."""

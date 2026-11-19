@@ -9,7 +9,7 @@ import common as C
 
 SOPHIE, AIDEN = "Sophie", "Aiden"
 F0_SPLIT = 140.0
-CENSOR = {"fuck": "f***", "fucking": "f***ing", "shit": "sh*t"}
+CENSOR = {"fuck": "f***", "fucking": "f***ing", "fuckin": "f***in", "fucked": "f***ed", "shit": "sh*t", "bitch": "b*tch", "bitches": "b*tches"}
 FIX = {"Kirk Lee": "Kirlia", "Where candy": "Rare Candy", "where candy": "Rare Candy"}
 FONTSDIR = os.path.join(C.EDITOR, "fonts", "ass")
 
