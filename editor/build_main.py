@@ -196,7 +196,13 @@ def plan(p):
     # ---------------- filtergraph ----------------
     fc, args = [], []
     for ci, (key, keep) in enumerate(T.chains):
-        args += C.input_args(p, key)
+        # seek each input close to its piece (decoding a long clip from 0 for every piece is slow) and put the
+        # source timestamps back with setpts, so every t below is still source time
+        ss = max(0.0, int(keep[0][0] - 3)) if keep else 0.0
+        ia = C.input_args(p, key)
+        dur = (keep[-1][1] - ss + 1.0) if keep else 1.0   # and stop decoding just after its last kept frame
+        args += ia[:-2] + (["-ss", f"{ss:.3f}"] if ss else []) + ["-t", f"{dur:.3f}"] + ia[-2:]
+        back = f"setpts=PTS+{ss:.3f}/TB," if ss else ""
         sel = "+".join(f"between(t,{a-HALF:.4f},{b-HALF:.4f})" for a, b in keep)
         asel = "+".join(f"between(t,{a:.4f},{b:.4f})" for a, b in keep)
         cx, cy = p["sources"][key].get("zoom_center", (0.5, 0.42))
@@ -204,10 +210,11 @@ def plan(p):
         sp = T.speed[ci]
         vsp = f",setpts=N/({sp}*FRAME_RATE)/TB,fps=30000/1001" if sp != 1 else ""
         asp = f",atempo={sp}" if sp != 1 else ""
-        fc += [f"[{ci}:v]{C.flip_filter(p, key)}scale=1920:1080:force_original_aspect_ratio=increase,crop=1920:1080,fps=30000/1001,setsar=1,"
+        # select the kept frames first, so the (expensive) scaling and zoom only run on frames that are used
+        fc += [f"[{ci}:v]{back}fps=30000/1001,select='{sel}',{C.flip_filter(p, key)}scale=1920:1080:force_original_aspect_ratio=increase,crop=1920:1080,setsar=1,"
                f"scale=w='trunc(1920*({zoom})/2)*2':h=-2:eval=frame:flags=bicubic,crop=1920:1080:x='(iw-ow)*{cx}':y='(ih-oh)*{cy}',setsar=1,"
-               f"select='{sel}',setpts=N/FRAME_RATE/TB{vsp}[v{ci}]",
-               f"[{ci}:a]aresample={SR},aformat=channel_layouts=stereo,asetnsamples=n=48,aselect='{asel}',asetpts=N/SR/TB{asp}[a{ci}]"]
+               f"setpts=N/FRAME_RATE/TB{vsp}[v{ci}]",
+               f"[{ci}:a]{back.replace('setpts', 'asetpts')}aresample={SR},aformat=channel_layouts=stereo,asetnsamples=n=48,aselect='{asel}',asetpts=N/SR/TB{asp}[a{ci}]"]
     n = len(T.chains)
     fc.append("".join(f"[v{i}][a{i}]" for i in range(n)) + f"concat=n={n}:v=1:a=1[cv][ca]")
     fc.append(f"[cv]{GRADE}[g]")
@@ -237,8 +244,14 @@ def make_graphics(jobs):
         list(ex.map(_one, jobs))
 
 def _one(j):
+    """draw one graphic, unless the same graphic (same settings) was already drawn by an earlier run"""
     import anim
+    key = repr((j[0], j[1], sorted(j[2].items())))
+    stamp = j[1][0] + ".job"
+    if os.path.exists(j[1][0]) and os.path.exists(stamp) and open(stamp).read() == key:
+        return
     getattr(anim, j[0])(*j[1], **j[2])
+    open(stamp, "w").write(key)
 
 
 def render(p, args, fcp, out, extra=()):
