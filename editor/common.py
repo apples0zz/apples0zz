@@ -36,6 +36,11 @@ def input_args(p, key):
     return pre + ["-i", src_path(p, key)]
 
 
+def flip_filter(p, key):
+    """ "flip": True turns a clip 180 degrees (a top-down camera set up facing us, so text on boxes reads upside down)."""
+    return "hflip,vflip," if p["sources"][key].get("flip") else ""
+
+
 def analysis(p, key, kind):
     """kind: wav | sil | words | f0"""
     ext = {"wav": ".wav", "sil": "_sil.tsv", "words": "_words.json", "f0": "_f0.npy"}[kind]
@@ -71,19 +76,31 @@ class Timeline:
     """Ordered pieces of source clips -> one continuous edit. Times in project files are always SOURCE times
     of a named source; Timeline.at(src, t) converts them to edit (output) time."""
 
-    def __init__(self, p, pieces, pad=0.12):
+    def __init__(self, p, pieces, pad=None):
+        """pieces: (source, from, to[, no-cut windows][, {"speed": 2}]). A speed > 1 fast-forwards that piece."""
+        pad = p.get("pause_pad", 0.12) if pad is None else pad
         self.chains = []  # (src_key, keep_ranges)
+        self.speed = []
         for piece in pieces:
             key, lo, hi = piece[0], piece[1], piece[2]
-            protect = list(piece[3]) if len(piece) > 3 else []
+            extra = list(piece[3:])
+            opts = extra.pop() if extra and isinstance(extra[-1], dict) else {}
+            protect = list(extra[0]) if extra else []
             protect += [tuple(w) for w in p.get("protect", {}).get(key, [])]
             self.chains.append((key, tighten(lo, hi, silences(p, key), pad, protect)))
+            self.speed.append(float(opts.get("speed", 1)))
         self.segs = []  # (chain_idx, src_key, a, b, out_start)
         o = 0.0
         for ci, (key, keep) in enumerate(self.chains):
-            for a, b in keep:
-                self.segs.append((ci, key, a, b, o))
-                o += b - a
+            sp = self.speed[ci]
+            if sp != 1:  # a fast-forwarded piece plays its kept frames back to back; keep whole frames
+                for a, b in keep:
+                    self.segs.append((ci, key, a, b, o))
+                    o += round((b - a) * FPS) / FPS / sp
+            else:
+                for a, b in keep:
+                    self.segs.append((ci, key, a, b, o))
+                    o += b - a
         self.total = o
         self.chain_start = {}
         for ci, key, a, b, os_ in self.segs:
@@ -106,7 +123,7 @@ class Timeline:
             if t < a:
                 return os_
             if t <= b:
-                return os_ + t - a
+                return os_ + (t - a) / self.speed[ci]
         return None
 
     def words(self, words_by_src):
@@ -117,6 +134,9 @@ class Timeline:
                 continue
             lo, hi = keep[0][0], keep[-1][1]
             segs = [(a, b, os_) for c, s, a, b, os_ in self.segs if c == ci]
+            sp = self.speed[ci]
+            if sp != 1:
+                continue  # no subtitles over fast-forwarded parts (sped-up speech is unreadable anyway)
             for x in words_by_src.get(key, []):
                 mid = (x["a"] + x["b"]) / 2
                 if not (lo - 0.05 <= mid <= hi + 0.05):
@@ -133,7 +153,8 @@ class Timeline:
     def report(self):
         out = [f"edit length {int(self.total//60)}:{self.total%60:04.1f}  ({len(self.segs)} jump cuts)"]
         for ci, (key, keep) in enumerate(self.chains):
-            out.append(f"  piece {ci}: {key:<10} {sum(b-a for a,b in keep):6.1f}s kept in {len(keep)} segments, starts at {self.chain_start.get(ci,0):.1f}s")
+            sp = f"  at {self.speed[ci]:g}x" if self.speed[ci] != 1 else ""
+            out.append(f"  piece {ci}: {key:<10} {sum(b-a for a,b in keep)/self.speed[ci]:6.1f}s kept in {len(keep)} segments, starts at {self.chain_start.get(ci,0):.1f}s{sp}")
         return "\n".join(out)
 
 

@@ -57,4 +57,37 @@ def softwhoosh(d=0.5):
     n=int(d*SR); t=np.arange(n)/n
     x=rng.standard_normal(n); y=lp(x,250+2600*np.sin(np.pi*t)**2); y=y-lp(y,300)
     y*=np.sin(np.pi*t)**2; return 0.8*y/np.abs(y).max()
-LIB={"bubble":bubble(),"bubble_hi":bubble(0.14,600,1600),"sparkle":sparkle(),"thump":thump(),"softwhoosh":softwhoosh(),"whoosh":whoosh(),"ding":ding(),"boom":boom(),"pop":pop(),"riser":riser()}
+def boing(d=0.55):
+    n=int(d*SR); t=np.arange(n)/SR
+    f=220+180*np.exp(-t/0.12)*np.cos(2*np.pi*11*t)+60*(1-t/d)
+    y=np.sin(2*np.pi*np.cumsum(f)/SR)*np.exp(-t/0.2)*np.minimum(t/0.004,1)
+    return 0.85*y/np.abs(y).max()
+def drumroll(d=1.4):
+    n=int(d*SR); t=np.arange(n)/SR; y=np.zeros(n)
+    hits=np.arange(0,d-0.02,0.045)
+    for h in hits:
+        i=int(h*SR); m=min(n-i,int(0.05*SR)); tt=np.arange(m)/SR
+        y[i:i+m]+= (0.4+0.6*h/d)*lp(rng.standard_normal(m),2500)*np.exp(-tt/0.018)
+    y*=np.minimum(t/0.3,1); return 0.8*y/np.abs(y).max()
+def tada(d=1.2):
+    n=int(d*SR); t=np.arange(n)/SR; y=np.zeros(n)
+    for k,(f,o) in enumerate([(523.25,0),(659.25,0.07),(783.99,0.14),(1046.5,0.21)]):
+        i=int(o*SR); tt=t[:n-i]
+        y[i:]+=(np.sin(2*np.pi*f*tt)+0.4*np.sin(2*np.pi*2*f*tt)+0.2*np.sin(2*np.pi*3*f*tt))*np.exp(-tt/0.45)*np.minimum(tt/0.01,1)
+    return 0.85*y/np.abs(y).max()
+def kaching(d=0.9):
+    n=int(d*SR); t=np.arange(n)/SR
+    y=0.6*lp(rng.standard_normal(n),5000)*np.exp(-t/0.03)
+    k=int(0.06*SR); tt=t[:n-k]
+    bell=(np.sin(2*np.pi*2093*tt)+0.7*np.sin(2*np.pi*2637*tt)+0.5*np.sin(2*np.pi*3136*tt))*np.exp(-tt/0.3)
+    y[k:]+=bell; return 0.85*y/np.abs(y).max()
+def scratch(d=0.45):
+    n=int(d*SR); t=np.arange(n)/n
+    x=rng.standard_normal(n); cut=600+3500*np.abs(np.sin(np.pi*2.2*t))
+    y=lp(x,cut)-lp(lp(x,cut),300); y*=np.sin(np.pi*t)**0.7
+    return 0.7*y/np.abs(y).max()
+def zoomwhoosh(d=0.3):
+    n=int(d*SR); t=np.arange(n)/n
+    x=rng.standard_normal(n); y=lp(x,400+5000*t**1.5); y=y-lp(y,500); y*=np.sin(np.pi*t)**1.2
+    return 0.6*y/np.abs(y).max()
+LIB={"boing":boing(),"drumroll":drumroll(),"tada":tada(),"kaching":kaching(),"scratch":scratch(),"zoomwhoosh":zoomwhoosh(),"bubble":bubble(),"bubble_hi":bubble(0.14,600,1600),"sparkle":sparkle(),"thump":thump(),"softwhoosh":softwhoosh(),"whoosh":whoosh(),"ding":ding(),"boom":boom(),"pop":pop(),"riser":riser()}

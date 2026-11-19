@@ -37,6 +37,18 @@ Each video gets its own settings file in `projects/<video>/project.py`. Read thi
 - **Shorts (2 per video):** vertical 1080x1920, 25–40 s each, with a pink title bar on top, the same sticker
   captions, card pop-up, sparkles and subtitles.
 
+### Energy level: BIG (asked for on video 3, Nov 2026, "BIG cuts, zooms, sound effects, and all the fun things")
+Set `"energy": "big"` in the project. The cute look stays the same, but everything is turned up:
+- **Bigger cuts:** `"pause_min": 0.35` and `"pause_pad": 0.08` cut shorter pauses. Fast-forward slow stretches (unboxing,
+  setup, sleeving) with a timeline piece option `{"speed": 2}`. A bouncing pink "FAST FORWARD >> 2X" badge plus record
+  scratches mark them, and there are no subtitles over sped-up speech.
+- **Zooms:** smooth animated zooms (not hard cuts). Punch-ins every ~2.6 s at 1.15x, big reveals ease into 1.6x, and
+  automatic "pop zooms" (1.28x bumps) on excited words (whoa, wait, yes, oh, let's...). Add extra ones with `pop_zooms`.
+  Still **no shake**.
+- **More fun sounds:** a drumroll into every big reveal plus a ta-da, a zoom whoosh on pop zooms, ka-ching on prices,
+  a record scratch on "wait" (at most every 20 s) and a boing on oops/dropped moments. All synthesized in `sfxlib.py`.
+- More sticker captions, card pop-ups and sparkle bursts than a normal video.
+
 ### Never do
 - **No light-background "reaction" caption pills** that comment on what we say (e.g. "DOUBLE GOLD STAR?!",
   "THE QUICK OPEN METHOD", "SUS BOOSTERS"). None at all, in the main video or the Shorts. The toolkit no
@@ -65,6 +77,7 @@ Each video gets its own settings file in `projects/<video>/project.py`. Read thi
   Normalize everything to 1920x1080 at 29.97 fps.
 - **Top-down shots filmed with the phone lying flat** get tagged as portrait and come out sideways. Look at the
   contact sheets: if the table is sideways, set `"ignore_rotation": True` on that source (it adds `-noautorotate`).
+- **Camera set up facing us** (box text reads upside down; we may say "I'll rotate it in editing"): set `"flip": True` (180 degrees).
 - Jump-cut video selects use half-open frame ranges (`HALF` in `common.py`) so audio and picture stay in sync over hundreds of cuts.
 - Don't `split` a source that's used twice in the timeline. Each timeline piece opens its own input (it saves memory).
 - Graphics are drawn by PIL as transparent qtrle clips and layered with `setpts=PTS+t/TB`, `overlay` and `eof_action=pass`.

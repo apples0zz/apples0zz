@@ -36,7 +36,7 @@ def wav(p, key):
 
 def silence(p, key):
     out = C.analysis(p, key, "sil")
-    r = subprocess.run(["ffmpeg", "-hide_banner", "-i", C.analysis(p, key, "wav"), "-af", "silencedetect=n=-36dB:d=0.5", "-f", "null", "-"],
+    r = subprocess.run(["ffmpeg", "-hide_banner", "-i", C.analysis(p, key, "wav"), "-af", f"silencedetect=n=-36dB:d={p.get('pause_min', 0.5)}", "-f", "null", "-"],
                        capture_output=True, text=True)
     vals = [float(l.split(":")[1].split("|")[0]) for l in r.stderr.splitlines() if "silence_start" in l or "silence_end" in l]
     with open(out, "w") as f:
@@ -89,7 +89,7 @@ def sheets(p, key):
     dur = float(subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", C.src_path(p, key)],
                                capture_output=True, text=True).stdout)
     step = max(2, dur / 30)
-    sh("ffmpeg", "-v", "error", "-y", *C.input_args(p, key), "-vf", f"fps=1/{step:.2f},scale=320:-1,tile=6x5", "-frames:v", "1", out)
+    sh("ffmpeg", "-v", "error", "-y", *C.input_args(p, key), "-vf", f"{C.flip_filter(p, key)}fps=1/{step:.2f},scale=320:-1,tile=6x5", "-frames:v", "1", out)
 
 
 if __name__ == "__main__":

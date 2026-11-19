@@ -33,14 +33,14 @@ def build(p, name, cfg):
     for i, (src, a, b, layout, os_, cx) in enumerate(segs):
         args += ["-ss", f"{a:.4f}", "-t", f"{b-a:.4f}"] + C.input_args(p, src)
         if layout == "wide":  # both faces: landscape strip over a blurred fill
-            fc.append(f"[{i}:v]fps=30000/1001,scale=1920:1080,setsar=1,split[w{i}a][w{i}b];"
+            fc.append(f"[{i}:v]{C.flip_filter(p, src)}fps=30000/1001,scale=1920:1080,setsar=1,split[w{i}a][w{i}b];"
                       f"[w{i}a]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,boxblur=30:2,eq=brightness=-0.15[bg{i}];"
                       f"[w{i}b]crop=1500:1080:210:0,scale=1080:-2[fg{i}];[bg{i}][fg{i}]overlay=0:(H-h)/2,setsar=1[sv{i}]")
         else:  # 9:16 crop around the hands, tighter during zoom moments
             zoomed = any(s == src and not (b < za or a > zb) for s, za, zb in zooms)
             ch = 840 if zoomed else 1080; cw = int(ch * 9 / 16) // 2 * 2
             x = int(min(max(cx * 1920 - cw / 2, 0), 1920 - cw)); y = int(min(max((432 if zoomed else 540) - ch / 2, 0), 1080 - ch))
-            fc.append(f"[{i}:v]fps=30000/1001,scale=1920:1080,setsar=1,crop={cw}:{ch}:{x}:{y},scale=1080:1920,setsar=1[sv{i}]")
+            fc.append(f"[{i}:v]{C.flip_filter(p, src)}fps=30000/1001,scale=1920:1080,setsar=1,crop={cw}:{ch}:{x}:{y},scale=1080:1920,setsar=1[sv{i}]")
         fc.append(f"[{i}:a]aresample={SR},aformat=channel_layouts=stereo,apad,atrim=duration={b-a:.4f}[sa{i}]")
     n = len(segs)
     fc.append("".join(f"[sv{i}][sa{i}]" for i in range(n)) + f"concat=n={n}:v=1:a=1[cv][ca]")

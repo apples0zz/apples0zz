@@ -14,6 +14,56 @@ SR, FPS, HALF, snap = C.SR, C.FPS, C.HALF, C.snap
 GRADE = "eq=saturation=1.1:brightness=0.025:gamma=1.03,colorbalance=rs=0.03:bs=0.04:rm=0.02"
 
 
+HYPE_WORDS = {"wow", "whoa", "omg", "yes", "yay", "no", "wait", "what", "holy", "dude", "nice", "oh", "let's", "lets", "ooh", "look", "babe"}
+
+
+def pop_zoom_times(p, T, ci, key):
+    """BIG energy: quick zoom bumps on excited moments (an exclamation word that starts a phrase), every ~6 s at most."""
+    if p.get("energy") != "big" or T.speed[ci] != 1:
+        return []
+    keep = T.chains[ci][1]
+    if not keep or not os.path.exists(C.analysis(p, key, "words")):
+        return []
+    lo, hi = keep[0][0], keep[-1][1]
+    words = json.load(open(C.analysis(p, key, "words")))
+    big = [(a - 1.0, b + 1.0) for s, a, b in p.get("big_zooms", []) if s == key]
+    out, last, prev_end = [], -99, -99
+    for a, b, w, prob in words:
+        k = w.lower().strip(".,!?")
+        if lo <= a <= hi and k in HYPE_WORDS and a - prev_end > 0.35 and a - last > 6 and not any(x <= a <= y for x, y in big):
+            out.append(a); last = a
+        prev_end = b
+    return out + [t for s, t in p.get("pop_zooms", []) if s == key]
+
+
+def zoom_windows(p, T, ci, key, keep, extra):
+    """(start, end, amount, ramp_in, ramp_out) on SOURCE time: alternating punch-ins + big zooms + pop zooms."""
+    big_e = p.get("energy") == "big"
+    step = 2.6 if big_e else 3.5
+    amt = 0.15 if big_e else 0.12
+    wins = []
+    for a, b in keep:
+        n = max(1, int((b - a) // step))
+        blk = [(a + (b - a) * j / n, a + (b - a) * (j + 1) / n) for j in range(n)]
+        wins += [(x, y, amt, 0.06, 0.06) for i, (x, y) in enumerate(blk) if i % 2]
+    bigz = [(a, b) for s, a, b in p.get("big_zooms", []) if s == key and T.chain_of(key, a) == ci]
+    wins = [w for w in wins if not any(not (w[1] < x or w[0] > y) for x, y in bigz)]
+    wins += [(a, b, 0.6 if big_e else 0.5, 0.35, 0.35) for a, b in bigz]
+    for t in pop_zoom_times(p, T, ci, key):
+        wins = [w for w in wins if not (w[0] - 0.2 <= t <= w[1] + 0.2 and w[2] <= 0.15)]
+        wins.append((t - 0.05, t + 1.1, 0.28, 0.12, 0.45))
+    return wins
+
+
+def zoom_expr(wins):
+    """1 + sum of eased bumps; t is the source clip's own time."""
+    terms = []
+    for a, b, amt, ri, ro in wins:
+        u = f"min(1,max(0,(t-{a:.3f})/{ri}))*min(1,max(0,({b:.3f}-t)/{ro}))"
+        terms.append(f"{amt}*({u})*({u})*(3-2*({u}))")
+    return "1+" + "+".join(terms) if terms else "1"
+
+
 def plan(p):
     T = C.Timeline(p, p["timeline"])
     W = p["work"]; EL = os.path.join(W, "el"); OUT = os.path.join(W, "out")
@@ -52,6 +102,14 @@ def plan(p):
     bursts += [at(*x) - 0.05 for x in p.get("extra_bursts", [])]
     for i, t in enumerate(bursts):
         jobs.append(("sparkle_burst", (f"{EL}/burst{i}.mov", 1.0), dict(seed=i + 3), t, "0", "0"))
+    pops_by_chain = {}
+    ffwd = []  # fast-forwarded pieces get a bouncing pink "FAST FORWARD" badge
+    for ci, sp in enumerate(T.speed):
+        if sp != 1 and T.chains[ci][1]:
+            a = T.chain_start[ci]
+            d = sum(round((y - x) * FPS) / FPS for x, y in T.chains[ci][1]) / sp
+            ffwd.append((a, d))
+            jobs.append(("title_bar", (f"{EL}/ffwd{ci}.mov", f"FAST FORWARD  >>  {sp:g}X", d), dict(size=46), a, "40", "24"))
 
     # ---------------- sound effects track ----------------
     track = np.zeros(int((T.total + 2) * SR))
@@ -75,6 +133,29 @@ def plan(p):
         place(t - 0.2, "softwhoosh", 0.4); place(t - 0.2, "sparkle", 0.18)
     for src, t, name, g in p.get("extra_sfx", []):
         place(at(src, t), name, g)
+    if p.get("energy") == "big":
+        for src, t, snd in big:                       # drumroll into every big reveal, ta-da on it
+            ot = at(src, t)
+            if ot is not None:
+                place(ot - 1.4, "drumroll", 0.35); place(ot, "tada", 0.4)
+        for ci, (key, keep) in enumerate(T.chains):   # zoom whoosh on every pop zoom
+            for t in pop_zoom_times(p, T, ci, key):
+                place(at(key, t), "zoomwhoosh", 0.35)
+        for a, d in ffwd:
+            place(a, "scratch", 0.3); place(a + d - 0.2, "scratch", 0.25)
+        last = {"kaching": -99, "scratch": -99, "boing": -99}
+        for ci, (key, keep) in enumerate(T.chains):   # word-triggered fun sounds
+            if T.speed[ci] != 1 or not os.path.exists(C.analysis(p, key, "words")): continue
+            lo, hi = keep[0][0], keep[-1][1]
+            for a_, b_, w, prob in json.load(open(C.analysis(p, key, "words"))):
+                if not lo <= a_ <= hi: continue
+                k = w.lower().strip(".,!?")
+                snd = ("kaching" if ("$" in w or k in ("dollars", "bucks", "worth")) else
+                       "scratch" if k == "wait" else
+                       "boing" if k in ("oops", "dropped", "fell", "falling", "farted", "whoops") else None)
+                ot = at(key, a_)
+                if snd and ot is not None and ot - last[snd] > (20 if snd == "scratch" else 8):
+                    place(ot, snd, {"kaching": 0.4, "scratch": 0.28, "boing": 0.4}[snd]); last[snd] = ot
     mute = []
     for src, a, b in p.get("bleeps", []):
         oa, ob = at(src, a), at(src, b)
@@ -102,20 +183,15 @@ def plan(p):
         args += C.input_args(p, key)
         sel = "+".join(f"between(t,{a-HALF:.4f},{b-HALF:.4f})" for a, b in keep)
         asel = "+".join(f"between(t,{a:.4f},{b:.4f})" for a, b in keep)
-        blocks = []
-        for a, b in keep:  # alternate normal / 1.12x punch-in every ~3.5 s
-            n = max(1, int((b - a) // 3.5))
-            blocks += [(a + (b - a) * j / n, a + (b - a) * (j + 1) / n) for j in range(n)]
-        alt = "+".join(f"between(t,{snap(a)-HALF:.4f},{snap(b)-HALF:.4f})" for i, (a, b) in enumerate(blocks) if i % 2) or "0"
         cx, cy = p["sources"][key].get("zoom_center", (0.5, 0.42))
-        bz = "+".join(f"between(t,{a},{b})" for s, a, b in p.get("big_zooms", []) if s == key and T.chain_of(key, a) == ci) or "0"
-        fc += [f"[{ci}:v]scale=1920:1080:force_original_aspect_ratio=increase,crop=1920:1080,fps=30000/1001,setsar=1,split=3[c{ci}b][c{ci}z][c{ci}y]",
-               f"[c{ci}z]crop=iw/1.12:ih/1.12:(iw-ow)/2:(ih-oh)*0.45,scale=1920:1080[c{ci}zz]",
-               f"[c{ci}y]crop=iw/1.5:ih/1.5:iw*{cx}-ow/2:ih*{cy}-oh/2,scale=1968:1108[c{ci}yy]",
-               f"[c{ci}b][c{ci}zz]overlay=enable='{alt}'[c{ci}o1]",
-               f"[c{ci}o1][c{ci}yy]overlay=x=-24:y=-14:enable='{bz}'[c{ci}o2]",
-               f"[c{ci}o2]select='{sel}',setpts=N/FRAME_RATE/TB[v{ci}]",
-               f"[{ci}:a]aresample={SR},aformat=channel_layouts=stereo,asetnsamples=n=48,aselect='{asel}',asetpts=N/SR/TB[a{ci}]"]
+        zoom = zoom_expr(zoom_windows(p, T, ci, key, keep, pops_by_chain.get(ci, [])))
+        sp = T.speed[ci]
+        vsp = f",setpts=N/({sp}*FRAME_RATE)/TB,fps=30000/1001" if sp != 1 else ""
+        asp = f",atempo={sp}" if sp != 1 else ""
+        fc += [f"[{ci}:v]{C.flip_filter(p, key)}scale=1920:1080:force_original_aspect_ratio=increase,crop=1920:1080,fps=30000/1001,setsar=1,"
+               f"scale=w='trunc(1920*({zoom})/2)*2':h=-2:eval=frame:flags=bicubic,crop=1920:1080:x='(iw-ow)*{cx}':y='(ih-oh)*{cy}',setsar=1,"
+               f"select='{sel}',setpts=N/FRAME_RATE/TB{vsp}[v{ci}]",
+               f"[{ci}:a]aresample={SR},aformat=channel_layouts=stereo,asetnsamples=n=48,aselect='{asel}',asetpts=N/SR/TB{asp}[a{ci}]"]
     n = len(T.chains)
     fc.append("".join(f"[v{i}][a{i}]" for i in range(n)) + f"concat=n={n}:v=1:a=1[cv][ca]")
     fc.append(f"[cv]{GRADE}[g]")
