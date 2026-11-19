@@ -49,12 +49,12 @@ def smooth(v, sigma_s=0.9):
     return np.convolve(np.pad(v, pad, mode="edge"), k, mode="valid")
 
 
-def expr(times, vals, t0, t1, step=0.3):
+def expr(times, vals, t0, t1, step=0.3, absolute=False):
     """piecewise-linear ffmpeg expression of a track over source window [t0, t1], in the input's own t (0 at t0).
     Written as a flat sum of ramps (nested if()s hit ffmpeg's expression depth limit on long clips)."""
     keys = np.arange(t0, t1 + step, step)
     v = np.interp(keys, times, vals)
-    loc = keys - t0
+    loc = keys if absolute else keys - t0   # absolute: t is source time itself
     terms = [f"{v[0]:.4f}"]
     for i in range(len(keys) - 1):
         dv = v[i + 1] - v[i]

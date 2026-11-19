@@ -8,7 +8,7 @@ import json, os, re, subprocess, sys, wave
 import numpy as np
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import common as C
-import sfxlib, music, subs
+import sfxlib, music, subs, follow
 
 SR, FPS, HALF, snap = C.SR, C.FPS, C.HALF, C.snap
 GRADE = "eq=saturation=1.1:brightness=0.025:gamma=1.03,colorbalance=rs=0.03:bs=0.04:rm=0.02"
@@ -208,12 +208,26 @@ def plan(p):
         asel = "+".join(f"between(t,{a:.4f},{b:.4f})" for a, b in keep)
         cx, cy = p["sources"][key].get("zoom_center", (0.5, 0.42))
         zoom = zoom_expr(zoom_windows(p, T, ci, key, keep, pops_by_chain.get(ci, [])))
+        # crop position (crop's own iw/ih stay at the first frame's size while the zoom changes it, so the zoomed
+        # size is spelled out). During big zooms the window glides to the project's "focus" points: where the
+        # card is actually being held, usually low in the shot.
+        zw = f"(trunc(1920*({zoom})/2)*2)"; zh = f"({zw}*9/16)"
+        cropx, cropy = f"({zw}-1920)*{cx}", f"({zh}-1080)*{cy}"
+        fk = sorted((t, x, y) for s_, t, x, y in p.get("focus", []) if s_ == key and keep and keep[0][0] - 1 <= t <= keep[-1][1] + 1)
+        bigw = [w for w in zoom_windows(p, T, ci, key, keep, pops_by_chain.get(ci, [])) if w[2] >= 0.5]
+        if fk and bigw:
+            ts_ = np.array([k[0] for k in fk]); lo_, hi_ = min(ts_[0], keep[0][0]) - 1, max(ts_[-1], keep[-1][1]) + 1
+            fx = follow.expr(ts_, np.array([k[1] for k in fk]), lo_, hi_, 0.5, absolute=True)
+            fy = follow.expr(ts_, np.array([k[2] for k in fk]), lo_, hi_, 0.5, absolute=True)
+            wt = zoom_expr([(a, b, 1, ri, ro) for a, b, _, ri, ro in bigw])[2:]
+            cropx = f"(1-({wt}))*{cropx}+({wt})*min(max({fx}*{zw}-960,0),{zw}-1920)"
+            cropy = f"(1-({wt}))*{cropy}+({wt})*min(max({fy}*{zh}-540,0),{zh}-1080)"
         sp = T.speed[ci]
         vsp = f",setpts=N/({sp}*FRAME_RATE)/TB,fps=30000/1001" if sp != 1 else ""
         asp = f",atempo={sp}" if sp != 1 else ""
         # select the kept frames first, so the (expensive) scaling and zoom only run on frames that are used
         fc += [f"[{ci}:v]{back}fps=30000/1001,select='{sel}',{C.flip_filter(p, key)}scale=1920:1080:force_original_aspect_ratio=increase,crop=1920:1080,setsar=1,"
-               f"scale=w='trunc(1920*({zoom})/2)*2':h=-2:eval=frame:flags=bicubic,crop=1920:1080:x='(trunc(1920*({zoom})/2)*2-1920)*{cx}':y='(trunc(1920*({zoom})/2)*2*9/16-1080)*{cy}',setsar=1,"
+               f"scale=w='trunc(1920*({zoom})/2)*2':h=-2:eval=frame:flags=bicubic,crop=1920:1080:x='{cropx}':y='{cropy}',setsar=1,"
                f"setpts=N/FRAME_RATE/TB{vsp}[v{ci}]",
                f"[{ci}:a]{back.replace('setpts', 'asetpts')}aresample={SR},aformat=channel_layouts=stereo,asetnsamples=n=48,aselect='{asel}',asetpts=N/SR/TB{asp}[a{ci}]"]
     n = len(T.chains)
