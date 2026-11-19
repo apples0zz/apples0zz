@@ -89,7 +89,8 @@ def plan(p):
         jobs.append(("image_pop", (f"{EL}/img{i}.mov", C.resolve(p, img), b - a), dict(height=690), a, "(W-w)/2", "150"))
     for i, (src, sa, sb, txt) in enumerate(p.get("captions", [])):
         a, b = at(src, sa), at(src, sb)
-        if b is None: b = T.total
+        if b is None or b < a:  # the end was cut out of the edit: stop where that piece ends
+            b = T.end_of(src, sa) or T.total
         if a is None or b - a < 0.4: continue
         busy = any(not (b < x or a > y) for x, y in card_windows)
         jobs.append(("hype", (f"{EL}/cap{i}.mov", txt, b - a), {}, a, "(W-w)/2-230" if busy else "(W-w)/2", "-10"))

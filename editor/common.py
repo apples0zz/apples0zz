@@ -123,6 +123,15 @@ class Timeline:
                 out.append(os_ + (t - a) / self.speed[c])
         return out
 
+    def end_of(self, key, t):
+        """edit time where the piece showing source time t ends (for an end time that falls in footage that was cut)."""
+        ci = self.chain_of(key, t)
+        segs = [(a, b, os_) for c, s, a, b, os_ in self.segs if c == ci]
+        if ci is None or not segs:
+            return None
+        a, b, os_ = segs[-1]
+        return os_ + (b - a) / self.speed[ci]
+
     def at(self, key, t):
         """source time -> edit time (snaps forward into the next kept range if t was cut)."""
         ci = self.chain_of(key, t)
