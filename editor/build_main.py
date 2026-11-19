@@ -46,7 +46,7 @@ def zoom_windows(p, T, ci, key, keep, extra):
         n = max(1, int((b - a) // step))
         blk = [(a + (b - a) * j / n, a + (b - a) * (j + 1) / n) for j in range(n)]
         wins += [(x, y, amt, 0.06, 0.06) for i, (x, y) in enumerate(blk) if i % 2]
-    bigz = [(a, b) for s, a, b in p.get("big_zooms", []) if s == key and T.chain_of(key, a) == ci]
+    bigz = [(a, b) for s, a, b in p.get("big_zooms", []) if s == key and keep and keep[0][0] - 0.5 <= a <= keep[-1][1] + 0.5]
     wins = [w for w in wins if not any(not (w[1] < x or w[0] > y) for x, y in bigz)]
     wins += [(a, b, 0.6 if big_e else 0.5, 0.35, 0.35) for a, b in bigz]
     for t in pop_zoom_times(p, T, ci, key):
