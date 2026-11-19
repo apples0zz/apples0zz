@@ -11,6 +11,7 @@ import sfxlib, music, subs, anim, follow
 import build_main as bm
 
 SR, FPS = C.SR, C.FPS
+PAD = 220   # blurred extension under the shot (source px)
 GRADE = "eq=saturation=1.1:brightness=0.025:gamma=1.03,colorbalance=rs=0.03:bs=0.04:rm=0.02"
 
 
@@ -43,18 +44,35 @@ def build(p, name, cfg):
                       f"[w{i}b]crop=1500:1080:210:0,scale=1080:-2[fg{i}];[bg{i}][fg{i}]overlay=0:(H-h)/2,setsar=1[sv{i}]")
         else:  # 9:16 window that follows the hands and cards, easing into a zoom on every pull (no shake)
             tr = next((v for (ts, tl, th), v in tracks.items() if ts == src and tl - 0.01 <= a and b <= th + 0.01), None)
-            if tr is None:
-                xe, ye = f"{cx:.4f}", "0.45"
+            wins = [(za - a, zb - a, cfg.get("zoom", 0.45), 0.35, 0.35) for s, za, zb in zooms if s == src and not (b < za or a > zb)]
+            # camera path: follow the movement between pulls (whole shot height), and during each pull zoom glide to
+            # the hand-placed "focus" points, where the card is actually being held (usually right at the bottom edge)
+            ts_ = np.arange(a, b + 0.1, 0.1)
+            wgt = np.zeros_like(ts_)
+            for za, zb, *_ in wins:
+                u = np.clip((ts_ - a - za) / 0.35, 0, 1) * np.clip((zb + a - ts_) / 0.35, 0, 1)
+                wgt = np.maximum(wgt, u * u * (3 - 2 * u))
+            fk = sorted((t, x, y) for s_, t, x, y in cfg.get("focus", []) if s_ == src)
+            bx = np.interp(ts_, tr[0], tr[1]) if tr is not None else np.full_like(ts_, cx)
+            if fk:
+                fx = np.interp(ts_, [k[0] for k in fk], [k[1] for k in fk]); fy = np.interp(ts_, [k[0] for k in fk], [k[2] for k in fk])
             else:
-                xe, ye = follow.expr(tr[0], tr[1], a, b), follow.expr(tr[0], tr[2], a, b)
-            wins = [(za - a, zb - a, 0.38, 0.35, 0.35) for s, za, zb in zooms if s == src and not (b < za or a > zb)]
+                fx = bx; fy = np.interp(ts_, tr[0], tr[2]) if tr is not None else np.full_like(ts_, 0.5)
+            px_ = (1 - wgt) * bx + wgt * fx; py_ = (1 - wgt) * 0.5 + wgt * fy
+            xe, ye = follow.expr(ts_, px_, a, b, 0.2), follow.expr(ts_, py_, a, b, 0.2)
             if not wins:  # gentle punch-ins on alternate ~2.6 s beats so the frame never sits still
                 k0 = int(a // 2.6)
                 wins = [(k * 2.6 - a, (k + 1) * 2.6 - a, 0.1, 0.25, 0.25) for k in range(k0, int(b // 2.6) + 1) if k % 2]
             z = bm.zoom_expr(wins)
-            fc.append(f"[{i}:v]{C.flip_filter(p, src)}fps=30000/1001,scale=1920:1080,setsar=1,"
+            zw = f"(trunc(1920*({z})/2)*2)"; zh = f"({zw}*{1080 + PAD}/1920)"
+            # the pulls happen at the very bottom edge of the shot, so the frame gets a soft blurred extension
+            # below it (PAD px) and the window can centre a card held at the edge instead of hiding it under the UI
+            ye = f"(({ye})*1080/{1080 + PAD})"
+            fc.append(f"[{i}:v]{C.flip_filter(p, src)}fps=30000/1001,scale=1920:1080,setsar=1,split[f{i}a][f{i}b];"
+                      f"[f{i}b]crop=1920:{PAD}:0:{1080 - PAD},vflip,boxblur=24:2,eq=brightness=-0.06[f{i}p];[f{i}a][f{i}p]vstack,"
                       f"scale=w='trunc(1920*({z})/2)*2':h=-2:eval=frame:flags=bicubic,"
-                      f"crop=608:1080:x='min(max(({xe})*iw-304,0),iw-608)':y='min(max(({ye})*ih-540,0),ih-1080)',"
+                      # crop's iw/ih stay at the first frame's size while the zoom changes it, so spell the size out
+                      f"crop=608:1080:x='min(max(({xe})*{zw}-304,0),{zw}-608)':y='min(max(({ye})*{zh}-540,0),{zh}-1080)',"
                       f"scale=1080:1920,setsar=1[sv{i}]")
         fc.append(f"[{i}:a]aresample={SR},aformat=channel_layouts=stereo,apad,atrim=duration={b-a:.4f}[sa{i}]")
     n = len(segs)
@@ -63,9 +81,13 @@ def build(p, name, cfg):
     cards = p.get("cards", {})
     jobs = []
     for k, (src, t, d, key) in enumerate(cfg.get("cards", [])):
-        c = cards[key]; a = at(src, t); d = min(d, total - a)
+        # the real card gets the spotlight first: the official scan pops in a beat later, smaller, off to the right
+        # the real card gets the spotlight during the zoom; the official scan pops in as the zoom eases out
+        zend = [zb for s_, za, zb in zooms if s_ == src and za - 0.5 <= t <= zb]
+        a = (at(src, zend[0]) if zend and at(src, zend[0]) is not None else at(src, t) + 1.0) - 0.3
+        c = cards[key]; d = min(2.6, total - a)
         png = C.card_image(p, c["set"], c["num"]) if "set" in c else C.resolve(p, c["image"])
-        jobs.append(((anim.card, (f"{od}/card{k}.mov", png, f'{c["name"]}', d), dict(sparkle=True, cw=560)), a, "(W-w)/2", "490"))
+        jobs.append(((anim.card, (f"{od}/card{k}.mov", png, f'{c["name"]}', d), dict(sparkle=True, cw=520)), a, "(W-w)/2", "470"))
     jobs.append(((anim.title_bar, (f"{od}/title.mov", cfg["title"], total), dict(size=64)), 0.0, "(W-w)/2", "200"))
     for k, (src, sa, sb, txt) in enumerate(cfg.get("captions", [])):
         a, b = at(src, sa), at(src, sb)

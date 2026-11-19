@@ -213,7 +213,7 @@ def plan(p):
         asp = f",atempo={sp}" if sp != 1 else ""
         # select the kept frames first, so the (expensive) scaling and zoom only run on frames that are used
         fc += [f"[{ci}:v]{back}fps=30000/1001,select='{sel}',{C.flip_filter(p, key)}scale=1920:1080:force_original_aspect_ratio=increase,crop=1920:1080,setsar=1,"
-               f"scale=w='trunc(1920*({zoom})/2)*2':h=-2:eval=frame:flags=bicubic,crop=1920:1080:x='(iw-ow)*{cx}':y='(ih-oh)*{cy}',setsar=1,"
+               f"scale=w='trunc(1920*({zoom})/2)*2':h=-2:eval=frame:flags=bicubic,crop=1920:1080:x='(trunc(1920*({zoom})/2)*2-1920)*{cx}':y='(trunc(1920*({zoom})/2)*2*9/16-1080)*{cy}',setsar=1,"
                f"setpts=N/FRAME_RATE/TB{vsp}[v{ci}]",
                f"[{ci}:a]{back.replace('setpts', 'asetpts')}aresample={SR},aformat=channel_layouts=stereo,asetnsamples=n=48,aselect='{asel}',asetpts=N/SR/TB{asp}[a{ci}]"]
     n = len(T.chains)
