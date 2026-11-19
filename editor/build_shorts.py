@@ -7,7 +7,8 @@ import os, subprocess, sys
 import numpy as np
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import common as C
-import sfxlib, music, subs, anim
+import sfxlib, music, subs, anim, follow
+import build_main as bm
 
 SR, FPS = C.SR, C.FPS
 GRADE = "eq=saturation=1.1:brightness=0.025:gamma=1.03,colorbalance=rs=0.03:bs=0.04:rm=0.02"
@@ -16,8 +17,12 @@ GRADE = "eq=saturation=1.1:brightness=0.025:gamma=1.03,colorbalance=rs=0.03:bs=0
 def build(p, name, cfg):
     W = p["work"]; od = os.path.join(W, "el", name); os.makedirs(od, exist_ok=True)
     segs, o = [], 0.0  # (src, a, b, layout, out_start, cx)
+    tracks = {}  # part (src, from, to) -> follow-the-action camera path
     for part in cfg["parts"]:
         src, lo, hi = part["src"], part["from"], part["to"]
+        if part.get("layout", "crop") == "crop" and not part.get("static"):
+            dflt = (part.get("x", p["sources"][src].get("zoom_center", (0.62, 0.4))[0]), 0.5)
+            tracks[(src, lo, hi)] = follow.track(p, src, lo, hi, dflt)
         for a, b in C.tighten(lo, hi, C.silences(p, src), 0.12, part.get("protect", [(lo, hi)] if part.get("no_cuts") else [])):
             segs.append((src, a, b, part.get("layout", "crop"), o, part.get("x", p["sources"][src].get("zoom_center", (0.62, 0.4))[0])))
             o += b - a
@@ -36,11 +41,21 @@ def build(p, name, cfg):
             fc.append(f"[{i}:v]{C.flip_filter(p, src)}fps=30000/1001,scale=1920:1080,setsar=1,split[w{i}a][w{i}b];"
                       f"[w{i}a]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,boxblur=30:2,eq=brightness=-0.15[bg{i}];"
                       f"[w{i}b]crop=1500:1080:210:0,scale=1080:-2[fg{i}];[bg{i}][fg{i}]overlay=0:(H-h)/2,setsar=1[sv{i}]")
-        else:  # 9:16 crop around the hands, tighter during zoom moments
-            zoomed = any(s == src and not (b < za or a > zb) for s, za, zb in zooms)
-            ch = 840 if zoomed else 1080; cw = int(ch * 9 / 16) // 2 * 2
-            x = int(min(max(cx * 1920 - cw / 2, 0), 1920 - cw)); y = int(min(max((432 if zoomed else 540) - ch / 2, 0), 1080 - ch))
-            fc.append(f"[{i}:v]{C.flip_filter(p, src)}fps=30000/1001,scale=1920:1080,setsar=1,crop={cw}:{ch}:{x}:{y},scale=1080:1920,setsar=1[sv{i}]")
+        else:  # 9:16 window that follows the hands and cards, easing into a zoom on every pull (no shake)
+            tr = next((v for (ts, tl, th), v in tracks.items() if ts == src and tl - 0.01 <= a and b <= th + 0.01), None)
+            if tr is None:
+                xe, ye = f"{cx:.4f}", "0.45"
+            else:
+                xe, ye = follow.expr(tr[0], tr[1], a, b), follow.expr(tr[0], tr[2], a, b)
+            wins = [(za - a, zb - a, 0.38, 0.35, 0.35) for s, za, zb in zooms if s == src and not (b < za or a > zb)]
+            if not wins:  # gentle punch-ins on alternate ~2.6 s beats so the frame never sits still
+                k0 = int(a // 2.6)
+                wins = [(k * 2.6 - a, (k + 1) * 2.6 - a, 0.1, 0.25, 0.25) for k in range(k0, int(b // 2.6) + 1) if k % 2]
+            z = bm.zoom_expr(wins)
+            fc.append(f"[{i}:v]{C.flip_filter(p, src)}fps=30000/1001,scale=1920:1080,setsar=1,"
+                      f"scale=w='trunc(1920*({z})/2)*2':h=-2:eval=frame:flags=bicubic,"
+                      f"crop=608:1080:x='min(max(({xe})*iw-304,0),iw-608)':y='min(max(({ye})*ih-540,0),ih-1080)',"
+                      f"scale=1080:1920,setsar=1[sv{i}]")
         fc.append(f"[{i}:a]aresample={SR},aformat=channel_layouts=stereo,apad,atrim=duration={b-a:.4f}[sa{i}]")
     n = len(segs)
     fc.append("".join(f"[sv{i}][sa{i}]" for i in range(n)) + f"concat=n={n}:v=1:a=1[cv][ca]")
