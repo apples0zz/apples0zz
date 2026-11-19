@@ -4,15 +4,18 @@ PROJECT = {
     "title": "",
     "sources": {
         "c6244": {"drive": "1Uqaxz4qfq2psm7Oa2AWeIY4yo2P5Fu_2", "file": "IMG_6244.mov", "zoom_center": (0.5, 0.45)},
-        "c6245": {"drive": "1JMFyya0YLt98ITN56_XfloElbu-aEJga", "file": "IMG_6245.mov", "zoom_center": (0.5, 0.45)},
-        "c6246": {"drive": "1DmU6dJKAAxbpa2_Okr8mqQWZg8uk90P9", "file": "IMG_6246.mov", "zoom_center": (0.5, 0.45)},
-        "c6248": {"drive": "1mL1ngzGVIpW04JqsYjbF1oIKYHgXxaM6", "file": "IMG_6248.mov", "zoom_center": (0.5, 0.45), "ignore_rotation": True},
-        "c6250": {"drive": "1MXqX7prNvLjg64nhDN8IlG8lg_6UYUqX", "file": "IMG_6250.mov", "zoom_center": (0.5, 0.45), "ignore_rotation": True},
+        "c6245": {"drive": "1JMFyya0YLt98ITN56_XfloElbu-aEJga", "file": "IMG_6245.mov", "zoom_center": (0.5, 0.45), "flip": True},
+        "c6246": {"drive": "1DmU6dJKAAxbpa2_Okr8mqQWZg8uk90P9", "file": "IMG_6246.mov", "zoom_center": (0.5, 0.45), "flip": True},
+        "c6248": {"drive": "1mL1ngzGVIpW04JqsYjbF1oIKYHgXxaM6", "file": "IMG_6248.mov", "zoom_center": (0.5, 0.45), "ignore_rotation": True, "flip": True},
+        "c6250": {"drive": "1MXqX7prNvLjg64nhDN8IlG8lg_6UYUqX", "file": "IMG_6250.mov", "zoom_center": (0.5, 0.45), "ignore_rotation": True, "flip": True},
     },
     "timeline": [
-        # ("intro", 0.0, 20.0),
-        # ("main", 0.0, 900.0),
+        ("c6244", 0.0, 40.0, {"speed": 2}),
+        ("c6245", 0.0, 60.0),
     ],
+    "energy": "big",
+    "pause_min": 0.35,
+    "pause_pad": 0.08,
     "main_section_starts": 0,        # timeline piece where the pack-opening (lofi hip hop) music starts
     "protect": {},                   # {"main": [(from, to), ...]}  no jump cuts inside (reveals, hits lineup)
     "speakers": {"solo": {}},        # {"extra1": "Sophie"} for clips where only one of us talks
