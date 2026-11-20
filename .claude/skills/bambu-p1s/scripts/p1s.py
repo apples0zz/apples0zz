@@ -81,6 +81,22 @@ def poly2d(points) -> CrossSection:
     return CrossSection([list(map(tuple, points))], FillRule.NonZero)
 
 
+FONT_BOLD = "/usr/share/fonts/opentype/inter/Inter-ExtraBold.otf"
+
+
+def text2d(txt, height, font=FONT_BOLD) -> CrossSection:
+    """Text outline as a CrossSection, cap height ≈ `height` mm, centred on the origin.
+    Printable text: height >= 5 mm (>= 3 mm at 0.08 layers), bold fonts, strokes >= 0.6 mm."""
+    from manifold3d import FillRule
+    from matplotlib.font_manager import FontProperties
+    from matplotlib.textpath import TextPath
+    tp = TextPath((0, 0), txt, size=height / 0.73, prop=FontProperties(fname=font))  # Inter cap ≈ 0.73 em
+    polys = [p for p in tp.to_polygons(closed_only=True) if len(p) >= 3]
+    cs = CrossSection([list(map(tuple, p)) for p in polys], FillRule.EvenOdd)
+    x0, y0, x1, y1 = cs.bounds()
+    return cs.translate((-(x0 + x1) / 2, -(y0 + y1) / 2))
+
+
 def extrude(cs: CrossSection, h, scale_top=(1.0, 1.0), twist=0.0, div=0) -> Manifold:
     return Manifold.extrude(cs, h, div, twist, scale_top)
 
