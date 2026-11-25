@@ -254,6 +254,7 @@
   const SPEED_WINDOW_MS = 10 * 60 * 1000;
   const NOMINATIM = 'https://nominatim.openstreetmap.org/search?format=json&limit=1&addressdetails=1&q=';
   const OSRM = 'https://router.project-osrm.org/route/v1/driving/';
+  const PHOTON = 'https://photon.komoot.io/api/?limit=1&q=';
 
   const $ = (id) => document.getElementById(id);
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -265,14 +266,27 @@
     return 2 * EARTH_MI * Math.asin(Math.min(1, Math.sqrt(h)));
   }
 
-  async function fetchJSON(url, ms = 15000) {
-    const ctl = new AbortController();
-    const t = setTimeout(() => ctl.abort(), ms);
-    try {
-      const r = await fetch(url, { signal: ctl.signal, headers: { 'Accept': 'application/json' } });
-      if (!r.ok) throw new Error('HTTP ' + r.status);
-      return await r.json();
-    } finally { clearTimeout(t); }
+  // Fetch JSON with a timeout and a few retries (cell signal in a moving car is patchy).
+  async function fetchJSON(url, ms = 25000, tries = 3) {
+    let lastErr;
+    for (let k = 0; k < tries; k++) {
+      if (k) await sleep(k * 2000);
+      const ctl = new AbortController();
+      const t = setTimeout(() => ctl.abort(), ms);
+      try {
+        const r = await fetch(url, { signal: ctl.signal, headers: { 'Accept': 'application/json' } });
+        if (r.status >= 400 && r.status < 500 && r.status !== 429) throw Object.assign(new Error('HTTP ' + r.status), { fatal: true });
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return await r.json();
+      } catch (e) {
+        lastErr = e;
+        if (e.fatal) break;
+      } finally { clearTimeout(t); }
+    }
+    throw new NetError(lastErr);
+  }
+  class NetError extends Error {
+    constructor(cause) { super('Couldn’t reach the map service — the connection may be slow. Tap “Start trip” to try again.'); this.cause = cause; this.net = true; }
   }
 
   function store() {
@@ -348,17 +362,29 @@
     const wait = 1100 - (Date.now() - lastNominatim);   // Nominatim allows 1 request / second
     if (wait > 0) await sleep(wait);
     lastNominatim = Date.now();
-    const j = await fetchJSON(NOMINATIM + encodeURIComponent(q));
+    const j = await fetchJSON(NOMINATIM + encodeURIComponent(q), 20000, 2);
     return j && j[0] ? j[0] : null;
   }
   async function geocode(q) {
     const m = q.match(COORD);
     if (m) return { lat: +m[1], lon: +m[2], name: '' };
-    const tries = [q, q.replace(/^\s*\d+[A-Za-z]?\s+/, '')];   // full address, then without the house number
-    for (const t of [...new Set(tries)]) {
-      const g = await nominatim(t);
-      if (g) return { lat: +g.lat, lon: +g.lon, name: nameFromGeo(g) };
+    const tries = [...new Set([q, q.replace(/^\s*\d+[A-Za-z]?\s+/, '')])];   // full address, then without the house number
+    let netErr = null;
+    for (const t of tries) {
+      try {
+        const g = await nominatim(t);
+        if (g) return { lat: +g.lat, lon: +g.lon, name: nameFromGeo(g) };
+      } catch (e) { netErr = e; break; }
     }
+    // Backup geocoder (also OpenStreetMap data) if Nominatim is slow, down, or finds nothing.
+    for (const t of tries) {
+      try {
+        const j = await fetchJSON(PHOTON + encodeURIComponent(t), 20000, 2);
+        const f = j && j.features && j.features[0];
+        if (f) return { lat: f.geometry.coordinates[1], lon: f.geometry.coordinates[0], name: (f.properties && (f.properties.city || f.properties.town || f.properties.village)) || '' };
+      } catch (e) { netErr = netErr || e; }
+    }
+    if (netErr) throw netErr;
     throw new Error('Couldn’t find “' + q + '”. Try adding the city and state.');
   }
 
@@ -437,6 +463,8 @@
     from = (from || '').trim(); to = (to || '').trim();
     const fromAsked = from;
     if (!to) return showSetup('Enter a destination.');
+    S = { from, to, fromName: fromName || '', toName: toName || '', pending: true };
+    store();
     try {
       let start;
       if (!from) {
@@ -470,7 +498,7 @@
       store();
       showTrip();
     } catch (e) {
-      showSetup((e && e.message) || 'Something went wrong. Check your connection and try again.');
+      showSetup((e && e.message && e.message !== 'Fetch is aborted' ? e.message : '') || 'Something went wrong. Check your connection and tap “Start trip” to try again.');
     }
   }
 
@@ -705,6 +733,7 @@
   });
   document.addEventListener('click', () => { if ($('trip').classList.contains('on')) keepAwake(); });
   setInterval(() => { if ($('trip').classList.contains('on')) render(); }, 30000);
+  setInterval(() => { if ($('trip').classList.contains('on') && S && S.fallback) retryOsrm(); }, 120000);
 
   /* ---------------- location help ---------------- */
   function showHelp() { $('help').classList.add('on'); }
@@ -728,7 +757,10 @@
       else setupError('Couldn’t get your location. Type a start address instead.');
     } finally { b.disabled = false; b.textContent = '📍 Use my current location'; }
   });
-  $('goBtn').addEventListener('click', () => startTrip($('fromIn').value, $('toIn').value));
+  $('goBtn').addEventListener('click', () => {
+    const keep = S && S.pending && S.to === $('toIn').value.trim() && S.from === $('fromIn').value.trim();
+    startTrip($('fromIn').value, $('toIn').value, keep ? S.fromName : '', keep ? S.toName : '');
+  });
   $('toIn').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('goBtn').click(); });
   $('newBtn').addEventListener('click', () => {
     if (!confirm('End this trip and start a new one?')) return;
@@ -758,6 +790,8 @@
     if (h && h.fromName) S.fromName = h.fromName;
     if (h && h.toName) S.toName = h.toName;
     showTrip();                                         // resume saved trip
+  } else if (S && S.pending && S.to) {
+    startTrip(S.from, S.to, S.fromName, S.toName);     // finish a trip that didn't load last time
   } else {
     showSetup();
   }
