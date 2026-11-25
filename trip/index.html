@@ -1,0 +1,767 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Trip Bar">
+<meta name="theme-color" content="#0a0c10">
+<meta name="referrer" content="strict-origin">
+<title>Trip Loading Bar</title>
+<style>
+  :root {
+    --bg: #0a0c10;
+    --panel: #151922;
+    --line: #262c38;
+    --text: #ffffff;
+    --dim: #9aa4b5;
+    --green: #3ddc84;
+    --green2: #1fb866;
+    --yellow: #ffd23f;
+    --red: #ff5d5d;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -webkit-text-size-adjust: 100%;
+    padding: env(safe-area-inset-top) max(16px, env(safe-area-inset-right)) env(safe-area-inset-bottom) max(16px, env(safe-area-inset-left));
+    overflow-x: hidden;
+  }
+  .screen { display: none; min-height: 100%; }
+  .screen.on { display: flex; }
+  button { font: inherit; color: inherit; cursor: pointer; }
+  .btn {
+    border: 0; border-radius: 16px; padding: 18px 20px; font-size: 20px; font-weight: 700;
+    background: var(--green); color: #04140a; width: 100%;
+  }
+  .btn.ghost { background: var(--panel); color: var(--text); border: 1px solid var(--line); }
+  .btn:disabled { opacity: .5; }
+
+  /* ---------- setup ---------- */
+  #setup { flex-direction: column; justify-content: center; gap: 18px; max-width: 520px; margin: 0 auto; padding: 24px 0; }
+  #setup h1 { font-size: 34px; margin: 0 0 4px; letter-spacing: -.02em; }
+  #setup p.sub { color: var(--dim); margin: 0 0 8px; font-size: 17px; line-height: 1.4; }
+  label { display: block; font-size: 15px; font-weight: 600; color: var(--dim); margin-bottom: 8px; text-transform: uppercase; letter-spacing: .06em; }
+  input[type=text] {
+    width: 100%; font-size: 20px; padding: 16px; border-radius: 14px; border: 1px solid var(--line);
+    background: var(--panel); color: var(--text); outline: none;
+  }
+  input[type=text]:focus { border-color: var(--green); }
+  .row { display: flex; gap: 10px; margin-top: 10px; }
+  .row .btn { font-size: 17px; padding: 14px; }
+  .err { background: #3a1416; border: 1px solid #6b2226; color: #ffd6d6; border-radius: 14px; padding: 14px 16px; font-size: 17px; line-height: 1.4; display: none; }
+  .err.on { display: block; }
+
+  /* ---------- loading ---------- */
+  #loading { flex-direction: column; justify-content: center; align-items: center; text-align: center; gap: 16px; }
+  #loading .spin { width: 56px; height: 56px; border: 6px solid var(--line); border-top-color: var(--green); border-radius: 50%; animation: spin 1s linear infinite; }
+  #loadMsg { font-size: 24px; font-weight: 700; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ---------- trip ---------- */
+  #trip { flex-direction: column; justify-content: space-between; gap: 14px; padding: 14px 0 18px; min-height: 100vh; min-height: 100dvh; }
+  .top { display: flex; justify-content: space-between; align-items: center; font-size: 15px; color: var(--dim); font-weight: 600; gap: 10px; }
+  .top .title { letter-spacing: .12em; text-transform: uppercase; }
+  .gps { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+  .dot { width: 12px; height: 12px; border-radius: 50%; background: var(--dim); flex: none; }
+  .dot.ok { background: var(--green); box-shadow: 0 0 10px var(--green); }
+  .dot.warn { background: var(--yellow); }
+  .dot.bad { background: var(--red); }
+
+  .main { display: flex; flex-direction: column; justify-content: center; flex: 1; gap: 18px; }
+  #pct {
+    font-size: clamp(96px, 34vw, 220px); font-weight: 800; line-height: .9; letter-spacing: -.05em;
+    text-align: center; font-variant-numeric: tabular-nums;
+  }
+  #pct small { font-size: .4em; letter-spacing: 0; color: var(--dim); margin-left: .05em; }
+
+  .barwrap { position: relative; padding-top: 46px; }
+  #car {
+    position: absolute; top: 0; left: 0; font-size: 42px; line-height: 1;
+    transform: translateX(-50%); transition: left 1.2s ease; will-change: left;
+  }
+  #car span { display: inline-block; transform: scaleX(-1); }
+  .bar {
+    height: 64px; border-radius: 18px; background: #1b202b; border: 3px solid #3a4252;
+    overflow: hidden; position: relative;
+  }
+  #fill {
+    height: 100%; width: 0; border-radius: 12px 0 0 12px; transition: width 1.2s ease;
+    background:
+      repeating-linear-gradient(-45deg, rgba(255,255,255,.18) 0 14px, rgba(255,255,255,0) 14px 28px),
+      linear-gradient(180deg, var(--green), var(--green2));
+    background-size: 40px 40px, 100% 100%;
+    animation: stripes 1s linear infinite;
+  }
+  #fill.done { border-radius: 12px; }
+  @keyframes stripes { to { background-position: 40px 0, 0 0; } }
+  .ticks { position: absolute; inset: 0; pointer-events: none; }
+  .ticks i { position: absolute; top: 0; bottom: 0; width: 3px; background: rgba(10,12,16,.55); }
+  .ends { display: flex; justify-content: space-between; gap: 12px; margin-top: 10px; font-size: clamp(20px, 6vw, 30px); font-weight: 800; }
+  .ends span { max-width: 50%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ends span:last-child { text-align: right; }
+
+  #miles { text-align: center; font-size: clamp(26px, 8.4vw, 48px); font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: -.01em; white-space: nowrap; }
+  #miles .u { font-size: .6em; font-weight: 700; color: #d5dbe5; }
+  #miles .sep { color: var(--dim); font-weight: 600; }
+  #eta { text-align: center; font-size: clamp(22px, 6.4vw, 34px); font-weight: 700; color: var(--yellow); font-variant-numeric: tabular-nums; }
+  #eta .note { display: block; font-size: 15px; color: var(--dim); font-weight: 600; margin-top: 4px; }
+  #msg { text-align: center; font-size: clamp(22px, 6.4vw, 32px); font-weight: 800; min-height: 1.2em; }
+  #msg.pop { animation: pop .8s ease; }
+  @keyframes pop { 0% { transform: scale(.6); opacity: 0; } 60% { transform: scale(1.12); opacity: 1; } 100% { transform: scale(1); } }
+
+  .bottom { display: flex; flex-direction: column; gap: 10px; }
+  #status { text-align: center; color: var(--dim); font-size: 15px; line-height: 1.35; min-height: 1.3em; }
+  .bottom .row { margin: 0; }
+
+  #arrived .main { }
+  body.arrived #pct { color: var(--green); }
+  body.arrived #car { font-size: 50px; }
+
+  /* toast for milestones */
+  #toast {
+    position: fixed; left: 50%; top: 40%; transform: translate(-50%, -50%) scale(.8); opacity: 0; pointer-events: none;
+    background: var(--green); color: #04140a; font-weight: 900; font-size: clamp(30px, 9vw, 52px);
+    padding: 22px 28px; border-radius: 24px; text-align: center; width: min(90vw, 560px);
+    box-shadow: 0 20px 60px rgba(0,0,0,.6); transition: opacity .35s, transform .35s;
+  }
+  #toast.on { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+
+  /* permission help overlay */
+  #help {
+    position: fixed; inset: 0; background: rgba(5,6,9,.94); display: none; align-items: flex-start; justify-content: center;
+    padding: 24px max(16px, env(safe-area-inset-left)); z-index: 10; overflow-y: auto;
+  }
+  #help.on { display: flex; }
+  #help .card { margin: auto 0; background: var(--panel); border: 1px solid var(--line); border-radius: 20px; padding: 22px; max-width: 520px; width: 100%; }
+  #help h2 { margin: 0 0 10px; font-size: 26px; }
+  #help p, #help li { font-size: 18px; line-height: 1.45; }
+  #help ol { padding-left: 22px; margin: 8px 0 18px; }
+  #help b { color: var(--yellow); }
+
+  /* landscape on a car mount */
+  @media (orientation: landscape) and (max-height: 520px) {
+    #trip { padding: 6px 0 6px; gap: 2px; }
+    .main { gap: 5px; }
+    #pct { font-size: clamp(56px, 19vh, 150px); }
+    #eta .note { display: none; }
+    .ends { margin-top: 4px; }
+    .bar { height: 48px; }
+    .barwrap { padding-top: 38px; }
+    #car { font-size: 34px; }
+    #miles { font-size: clamp(22px, 7.5vh, 36px); }
+    #eta, #msg { font-size: clamp(18px, 6vh, 28px); }
+    .ends { font-size: clamp(18px, 6vh, 28px); }
+    .bottom { flex-direction: row; align-items: center; }
+    #status { flex: 1; text-align: left; }
+    .bottom .row { flex: none; }
+    .bottom .row .btn { width: auto; padding: 10px 16px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ================= SETUP ================= -->
+<section id="setup" class="screen">
+  <div>
+    <h1>Trip Loading Bar</h1>
+    <p class="sub">Watch your drive fill up like a loading bar. Enter a start and destination.</p>
+  </div>
+  <div id="setupErr" class="err"></div>
+  <div>
+    <label for="fromIn">Start</label>
+    <input id="fromIn" type="text" autocomplete="off" autocapitalize="words" placeholder="Street, City, State">
+    <div class="row"><button class="btn ghost" id="hereBtn" type="button">📍 Use my current location</button></div>
+  </div>
+  <div>
+    <label for="toIn">Destination</label>
+    <input id="toIn" type="text" autocomplete="off" autocapitalize="words" placeholder="Street, City, State">
+  </div>
+  <button class="btn" id="goBtn" type="button">Start trip</button>
+  <p class="sub" style="font-size:15px">Your addresses stay on this phone. They are sent only to OpenStreetMap (to look up the address) and OSRM (to get the driving route).</p>
+</section>
+
+<!-- ================= LOADING ================= -->
+<section id="loading" class="screen">
+  <div class="spin"></div>
+  <div id="loadMsg">Loading trip…</div>
+</section>
+
+<!-- ================= TRIP ================= -->
+<section id="trip" class="screen">
+  <div class="top">
+    <span class="title">Trip Loading Bar</span>
+    <span class="gps"><span id="dot" class="dot"></span><span id="gpsTxt">GPS…</span></span>
+  </div>
+
+  <div class="main">
+    <div id="pct">0<small>%</small></div>
+
+    <div class="barwrap">
+      <div id="car"><span>🚗</span></div>
+      <div class="bar">
+        <div id="fill"></div>
+        <div class="ticks"><i style="left:25%"></i><i style="left:50%"></i><i style="left:75%"></i></div>
+      </div>
+      <div class="ends"><span id="fromName">Start</span><span id="toName">Destination</span></div>
+    </div>
+
+    <div id="miles">— mi done <span class="sep">·</span> — mi left</div>
+    <div id="eta">ETA —</div>
+    <div id="msg"></div>
+  </div>
+
+  <div class="bottom">
+    <div id="status"></div>
+    <div class="row">
+      <button class="btn ghost" id="newBtn" type="button">New trip</button>
+    </div>
+  </div>
+</section>
+
+<div id="toast"></div>
+
+<!-- ================= LOCATION HELP ================= -->
+<div id="help" role="dialog" aria-modal="true">
+  <div class="card">
+    <h2>📍 Location is turned off</h2>
+    <p>The loading bar needs your location to know how far you've gone. Here's how to fix it on iPhone:</p>
+    <ol>
+      <li>Open <b>Settings</b> → <b>Privacy &amp; Security</b> → <b>Location Services</b>. Make sure it's <b>On</b>.</li>
+      <li>In that same list, tap <b>Safari Websites</b> and choose <b>While Using the App</b> (or <b>Ask Next Time</b>). Turn on <b>Precise Location</b>.</li>
+      <li>Back in Safari, tap the <b>aA</b> button in the address bar → <b>Website Settings</b> → <b>Location</b> → <b>Allow</b>.</li>
+      <li>Come back here and tap <b>Try again</b>.</li>
+    </ol>
+    <button class="btn" id="retryBtn" type="button">Try again</button>
+  </div>
+</div>
+
+<script>
+(() => {
+  'use strict';
+
+  /* ---------------- constants & helpers ---------------- */
+  const KEY = 'tripLoadingBar.v1';
+  const EARTH_MI = 3958.8;
+  const OFF_ROUTE_MI = 1.0;      // re-route when farther than this from the route
+  const ARRIVE_MI = 0.1;         // "You made it!" radius
+  const JITTER_MI = 0.3;         // ignore backwards movement smaller than this
+  const MAX_ACCURACY_M = 300;    // ignore GPS fixes worse than this
+  const SPEED_WINDOW_MS = 10 * 60 * 1000;
+  const NOMINATIM = 'https://nominatim.openstreetmap.org/search?format=json&limit=1&addressdetails=1&q=';
+  const OSRM = 'https://router.project-osrm.org/route/v1/driving/';
+
+  const $ = (id) => document.getElementById(id);
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const rad = (d) => d * Math.PI / 180;
+
+  function hav(a, b) {
+    const dLat = rad(b.lat - a.lat), dLon = rad(b.lon - a.lon);
+    const h = Math.sin(dLat / 2) ** 2 + Math.cos(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.sin(dLon / 2) ** 2;
+    return 2 * EARTH_MI * Math.asin(Math.min(1, Math.sqrt(h)));
+  }
+
+  async function fetchJSON(url, ms = 15000) {
+    const ctl = new AbortController();
+    const t = setTimeout(() => ctl.abort(), ms);
+    try {
+      const r = await fetch(url, { signal: ctl.signal, headers: { 'Accept': 'application/json' } });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return await r.json();
+    } finally { clearTimeout(t); }
+  }
+
+  function store() {
+    try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { /* private mode: keep going in memory */ }
+  }
+  function loadStore() {
+    try { return JSON.parse(localStorage.getItem(KEY)); } catch (e) { return null; }
+  }
+
+  /* ---------------- state ----------------
+     S = {
+       from, to, fromName, toName,           // what the user asked for
+       start:{lat,lon}, dest:{lat,lon},      // geocoded
+       coords:[[lon,lat],...],               // current route line
+       routeMiles, routeSecs,                // current route length / OSRM duration
+       offset,                               // miles already driven before current route began (after re-routes)
+       best,                                 // miles done (monotonic-ish)
+       fallback,                             // true = straight-line mode
+       samples:[[t,miles],...],              // for average speed
+       milestones:[25,50,...], arrived
+     }
+  */
+  let S = loadStore();
+  let cum = [];          // cumulative miles along S.coords
+  let watchId = null;
+  let lastFix = null;
+  let offCount = 0;
+  let rerouting = false;
+  let lastRerouteAt = 0;
+  let wakeLock = null;
+
+  /* ---------------- screens ---------------- */
+  function show(id) {
+    for (const s of document.querySelectorAll('.screen')) s.classList.toggle('on', s.id === id);
+  }
+  function setupError(msg) {
+    const e = $('setupErr');
+    e.textContent = msg || '';
+    e.classList.toggle('on', !!msg);
+  }
+  function showSetup(msg) {
+    stopWatch();
+    $('fromIn').value = (S && S.from) || '';
+    $('toIn').value = (S && S.to) || '';
+    setupError(msg);
+    show('setup');
+  }
+
+  /* ---------------- names for the bar ends ---------------- */
+  const SUFFIX = /^(rd|road|st|street|ln|lane|ave|avenue|dr|drive|hwy|highway|blvd|boulevard|ct|court|way|pkwy|parkway|cir|circle|pl|place|ter|terrace|trl|trail|tpke|turnpike|pike|run|loop|sq|square|xing|crossing)\.?$/i;
+  const STATE = /^[A-Za-z]{2}$/;
+  function nameFromQuery(q) {
+    if (!q) return '';
+    const parts = q.split(',').map((s) => s.trim()).filter(Boolean);
+    if (parts.length >= 3) return parts[parts.length - 2].replace(/\s+\d{5}(-\d{4})?$/, '');
+    let toks = q.replace(/,/g, ' ').split(/\s+/).filter(Boolean);
+    if (/^\d{5}(-\d{4})?$/.test(toks[toks.length - 1] || '')) toks.pop();
+    if (STATE.test(toks[toks.length - 1] || '')) toks.pop();
+    let i = -1;
+    toks.forEach((t, k) => { if (SUFFIX.test(t)) i = k; });
+    const city = i >= 0 ? toks.slice(i + 1).join(' ') : '';
+    return city && city.length <= 24 ? city : '';
+  }
+  function nameFromGeo(g) {
+    const a = (g && g.address) || {};
+    return a.city || a.town || a.village || a.hamlet || a.suburb || a.county || '';
+  }
+
+  /* ---------------- geocoding ---------------- */
+  const COORD = /^\s*(-?\d{1,3}(?:\.\d+)?)\s*,\s*(-?\d{1,3}(?:\.\d+)?)\s*$/;
+  let lastNominatim = 0;
+  async function nominatim(q) {
+    const wait = 1100 - (Date.now() - lastNominatim);   // Nominatim allows 1 request / second
+    if (wait > 0) await sleep(wait);
+    lastNominatim = Date.now();
+    const j = await fetchJSON(NOMINATIM + encodeURIComponent(q));
+    return j && j[0] ? j[0] : null;
+  }
+  async function geocode(q) {
+    const m = q.match(COORD);
+    if (m) return { lat: +m[1], lon: +m[2], name: '' };
+    const tries = [q, q.replace(/^\s*\d+[A-Za-z]?\s+/, '')];   // full address, then without the house number
+    for (const t of [...new Set(tries)]) {
+      const g = await nominatim(t);
+      if (g) return { lat: +g.lat, lon: +g.lon, name: nameFromGeo(g) };
+    }
+    throw new Error('Couldn’t find “' + q + '”. Try adding the city and state.');
+  }
+
+  /* ---------------- routing ---------------- */
+  async function osrmRoute(a, b) {
+    const url = OSRM + a.lon + ',' + a.lat + ';' + b.lon + ',' + b.lat + '?overview=full&geometries=geojson';
+    const j = await fetchJSON(url, 20000);
+    if (!j || j.code !== 'Ok' || !j.routes || !j.routes.length) throw new Error('No route');
+    const r = j.routes[0];
+    const coords = r.geometry.coordinates.map(([x, y]) => [+x.toFixed(5), +y.toFixed(5)]);
+    if (coords.length < 2) throw new Error('Empty route');
+    return { coords, secs: r.duration };
+  }
+
+  function buildCum() {
+    cum = [0];
+    const c = S.coords;
+    for (let i = 1; i < c.length; i++) {
+      cum.push(cum[i - 1] + hav({ lon: c[i - 1][0], lat: c[i - 1][1] }, { lon: c[i][0], lat: c[i][1] }));
+    }
+    S.routeMiles = cum[cum.length - 1];
+  }
+
+  function useRoute(r, fallback) {
+    S.coords = r.coords;
+    S.routeSecs = r.secs || null;
+    S.fallback = !!fallback;
+    buildCum();
+  }
+
+  // Snap a point to the route. Returns { along: miles along route, off: miles from route }.
+  // When the route passes near itself, prefer the match closest to our last known progress.
+  function snap(p) {
+    const c = S.coords, n = c.length;
+    const kx = Math.cos(rad(p.lat)) * 69.172, ky = 69.0; // miles per degree here
+    const offs = new Float64Array(n - 1), alongs = new Float64Array(n - 1);
+    let dmin = Infinity;
+    for (let i = 0; i < n - 1; i++) {
+      const ax = (c[i][0] - p.lon) * kx, ay = (c[i][1] - p.lat) * ky;
+      const bx = (c[i + 1][0] - p.lon) * kx, by = (c[i + 1][1] - p.lat) * ky;
+      const dx = bx - ax, dy = by - ay, L2 = dx * dx + dy * dy;
+      let t = L2 > 0 ? -(ax * dx + ay * dy) / L2 : 0;
+      t = t < 0 ? 0 : t > 1 ? 1 : t;
+      const d = Math.hypot(ax + t * dx, ay + t * dy);
+      offs[i] = d;
+      alongs[i] = cum[i] + t * (cum[i + 1] - cum[i]);
+      if (d < dmin) dmin = d;
+    }
+    const prev = (S.best || 0) - (S.offset || 0);
+    let bestI = -1, bestGap = Infinity;
+    for (let i = 0; i < n - 1; i++) {
+      if (offs[i] <= dmin + 0.15) {
+        const gap = Math.abs(alongs[i] - prev);
+        if (gap < bestGap) { bestGap = gap; bestI = i; }
+      }
+    }
+    return { along: alongs[bestI], off: offs[bestI] };
+  }
+
+  /* ---------------- trip setup ---------------- */
+  function loading(msg) { $('loadMsg').textContent = msg; show('loading'); }
+
+  function currentPosition() {
+    return new Promise((resolve, reject) => {
+      if (!navigator.geolocation) return reject({ code: 0, message: 'This browser has no location support.' });
+      navigator.geolocation.getCurrentPosition(
+        (p) => resolve({ lat: p.coords.latitude, lon: p.coords.longitude }),
+        reject,
+        { enableHighAccuracy: true, timeout: 20000, maximumAge: 10000 }
+      );
+    });
+  }
+
+  async function startTrip(from, to, fromName, toName) {
+    stopWatch();
+    from = (from || '').trim(); to = (to || '').trim();
+    const fromAsked = from;
+    if (!to) return showSetup('Enter a destination.');
+    try {
+      let start;
+      if (!from) {
+        loading('Finding where you are…');
+        try { start = await currentPosition(); }
+        catch (e) { if (e && e.code === 1) { showSetup(); showHelp(); return; } throw new Error('Couldn’t get your location. Type a start address instead.'); }
+        start.name = '';
+      } else {
+        loading('Finding start…');
+        start = await geocode(from);
+      }
+      loading('Finding destination…');
+      const dest = await geocode(to);
+
+      S = {
+        from: fromAsked, to,
+        fromName: fromName || nameFromQuery(from) || start.name || 'Start',
+        toName: toName || nameFromQuery(to) || dest.name || 'Destination',
+        start: { lat: start.lat, lon: start.lon },
+        dest: { lat: dest.lat, lon: dest.lon },
+        offset: 0, best: 0, samples: [], milestones: [], arrived: false,
+        createdAt: Date.now()
+      };
+
+      loading('Getting the driving route…');
+      try {
+        useRoute(await osrmRoute(S.start, S.dest), false);
+      } catch (e) {
+        useRoute({ coords: [[S.start.lon, S.start.lat], [S.dest.lon, S.dest.lat]] }, true);
+      }
+      store();
+      showTrip();
+    } catch (e) {
+      showSetup((e && e.message) || 'Something went wrong. Check your connection and try again.');
+    }
+  }
+
+  /* ---------------- trip screen ---------------- */
+  function showTrip() {
+    buildCum();
+    $('fromName').textContent = S.fromName;
+    $('toName').textContent = S.toName;
+    show('trip');
+    render();
+    startWatch();
+    keepAwake();
+    if (S.fallback) retryOsrm();
+  }
+
+  // If we had to fall back to a straight line, quietly try for a real route again.
+  async function retryOsrm() {
+    if (!S || !S.fallback || rerouting) return;
+    rerouting = true;
+    try {
+      const from = lastFix || S.start;
+      const r = await osrmRoute(from, S.dest);
+      S.offset = lastFix ? S.best : 0;
+      useRoute(r, false);
+      store(); render();
+    } catch (e) { /* stay on straight-line */ }
+    finally { rerouting = false; }
+  }
+
+  async function reroute(p) {
+    if (rerouting || Date.now() - lastRerouteAt < 60000) return;
+    rerouting = true; lastRerouteAt = Date.now();
+    setStatus('Off route — finding a new way…');
+    try {
+      const r = await osrmRoute(p, S.dest);
+      S.offset = S.best;          // keep the miles already driven
+      useRoute(r, false);
+      offCount = 0;
+      store();
+      setStatus('New route found ✓');
+    } catch (e) {
+      setStatus('Off route — couldn’t get a new route yet');
+    } finally { rerouting = false; render(); }
+  }
+
+  /* ---------------- GPS ---------------- */
+  function startWatch() {
+    if (watchId !== null) return;
+    if (!navigator.geolocation) { setGps('bad', 'No GPS'); setStatus('This browser has no location support.'); return; }
+    setGps('warn', 'GPS…');
+    watchId = navigator.geolocation.watchPosition(onFix, onGeoError, {
+      enableHighAccuracy: true, maximumAge: 3000, timeout: 30000
+    });
+  }
+  function stopWatch() {
+    if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+    watchId = null;
+  }
+
+  function onGeoError(e) {
+    if (e.code === 1) { setGps('bad', 'Blocked'); showHelp(); return; }
+    setGps('warn', e.code === 3 ? 'Searching…' : 'No signal');
+  }
+
+  function onFix(pos) {
+    hideHelp();
+    const c = pos.coords;
+    const p = { lat: c.latitude, lon: c.longitude };
+    const acc = c.accuracy || 0;
+    if (acc > MAX_ACCURACY_M) { setGps('warn', 'Weak GPS'); return; }
+    setGps('ok', acc < 30 ? 'GPS' : 'GPS ±' + Math.round(acc * 3.28084) + ' ft');
+    lastFix = p;
+    if (!S || !S.coords) return;
+
+    const total = S.offset + S.routeMiles;
+    const sn = snap(p);
+    let miles = S.offset + sn.along;
+
+    // Off route (detour, gas stop): hold progress, and re-route after two fixes in a row.
+    if (!S.fallback && sn.off > OFF_ROUTE_MI) {
+      offCount++;
+      miles = S.best;
+      if (offCount >= 2) reroute(p);
+    } else {
+      offCount = 0;
+    }
+
+    // Ignore small backwards jitter.
+    if (miles < S.best && S.best - miles < JITTER_MI) miles = S.best;
+    S.best = Math.max(0, Math.min(total, miles));
+
+    const end = S.coords[S.coords.length - 1];
+    const dDest = Math.min(hav(p, S.dest), hav(p, { lon: end[0], lat: end[1] }));
+    if (dDest <= ARRIVE_MI) { if (!S.arrived) S.arrivedAt = Date.now(); S.arrived = true; S.best = total; }
+
+    const now = Date.now();
+    S.samples.push([now, S.best]);
+    while (S.samples.length > 2 && now - S.samples[1][0] > SPEED_WINDOW_MS) S.samples.shift();
+    if (S.samples.length > 600) S.samples.splice(0, S.samples.length - 600);
+
+    store();
+    render();
+  }
+
+  /* ---------------- rendering ---------------- */
+  function fmtMi(m) { return m >= 100 ? Math.round(m).toString() : m.toFixed(1); }
+  function fmtClock(t) { return new Date(t).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }); }
+  function fmtDur(min) {
+    min = Math.max(1, Math.round(min));
+    return min < 60 ? min + ' min' : Math.floor(min / 60) + ' h ' + String(min % 60).padStart(2, '0') + ' min';
+  }
+
+  function avgMph() {
+    const s = S.samples || [];
+    if (s.length < 2) return null;
+    const now = Date.now();
+    let first = s[0];
+    for (const x of s) { if (now - x[0] <= SPEED_WINDOW_MS) { first = x; break; } }
+    const last = s[s.length - 1];
+    const hrs = (last[0] - first[0]) / 3.6e6;
+    if (hrs < 1 / 60) return null; // need at least a minute of data
+    return (last[1] - first[1]) / hrs;
+  }
+
+  function setGps(cls, txt) { $('dot').className = 'dot ' + cls; $('gpsTxt').textContent = txt; }
+  function setStatus(t) { $('status').textContent = t; }
+
+  const MILESTONES = [
+    [25, '25% — a quarter of the way! 🎉'],
+    [50, 'Halfway there! 🙌'],
+    [75, '75% — home stretch! 🏁'],
+  ];
+  function message(pct) {
+    if (S.arrived) return 'You made it! 🎉🏁';
+    if (pct >= 75) return 'Home stretch! 🏁';
+    if (pct >= 50) return 'Past halfway! 🙌';
+    if (pct >= 25) return 'A quarter done! 🎉';
+    if (pct >= 1) return 'Loading trip… 🛣️';
+    return 'Ready to roll 🛣️';
+  }
+
+  let toastTimer = null;
+  function toast(text) {
+    const t = $('toast');
+    t.textContent = text;
+    t.classList.add('on');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.classList.remove('on'), 6000);
+    if (navigator.vibrate) navigator.vibrate([120, 80, 120]);
+  }
+
+  let lastMsg = '';
+  function render() {
+    if (!S || !S.coords) return;
+    const total = S.offset + S.routeMiles;
+    const done = Math.min(S.best, total);
+    let left = Math.max(0, total - done);
+    let pct = total > 0 ? (done / total) * 100 : 0;
+    if (!S.arrived) pct = Math.min(pct, 99);     // 100% only when we're actually there
+    else { pct = 100; left = 0; }
+    pct = Math.max(0, Math.min(100, pct));
+
+    document.body.classList.toggle('arrived', !!S.arrived);
+    $('pct').innerHTML = Math.floor(pct) + '<small>%</small>';
+    $('fill').style.width = pct + '%';
+    $('fill').classList.toggle('done', pct >= 99.5);
+    // keep the car fully on screen at the ends
+    $('car').style.left = 'clamp(24px, ' + pct + '%, calc(100% - 24px))';
+    $('car').firstChild.textContent = S.arrived ? '🏁' : '🚗';
+    $('miles').innerHTML = fmtMi(done) + '<span class="u"> mi done</span> <span class="sep">·</span> ' + fmtMi(left) + '<span class="u"> mi left</span>';
+
+    // ETA
+    let eta = '', note = '';
+    if (S.arrived) {
+      eta = 'Arrived ' + fmtClock(S.arrivedAt || Date.now());
+    } else {
+      const mph = avgMph();
+      if (mph !== null && mph >= 3) {
+        const min = (left / mph) * 60;
+        eta = 'ETA ' + fmtClock(Date.now() + min * 60000) + ' · ' + fmtDur(min);
+        note = 'avg ' + Math.round(mph) + ' mph, last 10 min';
+      } else if (mph !== null && S.samples.length > 3 && (Date.now() - S.samples[0][0]) > 120000) {
+        eta = 'ETA — (stopped)';
+      } else if (S.routeSecs && S.routeMiles > 0 && !S.fallback) {
+        const routeLeft = Math.max(0, S.offset + S.routeMiles - done);
+        const min = (S.routeSecs / 60) * (routeLeft / S.routeMiles);
+        eta = 'ETA ~' + fmtClock(Date.now() + min * 60000) + ' · ' + fmtDur(min);
+        note = 'route estimate — live ETA after a minute of driving';
+      } else {
+        eta = 'ETA —';
+      }
+    }
+    $('eta').innerHTML = eta + (note ? '<span class="note">' + note + '</span>' : '');
+
+    // milestones
+    for (const [m, text] of MILESTONES) {
+      if (pct >= m && !S.milestones.includes(m)) {
+        S.milestones.push(m);
+        if (pct < m + 10) toast(text);   // don't spam old milestones when opening mid-trip
+        store();
+      }
+    }
+    if (S.arrived && !S.milestones.includes(100)) { S.milestones.push(100); toast('You made it! 🎉'); store(); }
+
+    const msg = message(pct);
+    const el = $('msg');
+    if (msg !== lastMsg) {
+      el.textContent = msg; lastMsg = msg;
+      el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop');
+    }
+
+    if (!rerouting) {
+      const bits = [];
+      if (S.fallback) bits.push('Straight-line estimate (route service unavailable)');
+      else if (S.offset > 0) bits.push('Re-routed · miles driven kept');
+      bits.push(wakeLock ? 'Screen stays on ✓' : ('wakeLock' in navigator ? 'Tap anywhere to keep the screen on' : 'Set Auto-Lock to Never to keep the screen on'));
+      setStatus(bits.join(' · '));
+    }
+  }
+
+  /* ---------------- wake lock ---------------- */
+  async function keepAwake() {
+    if (wakeLock || !('wakeLock' in navigator) || document.visibilityState !== 'visible') return;
+    try {
+      wakeLock = await navigator.wakeLock.request('screen');
+      wakeLock.addEventListener('release', () => { wakeLock = null; render(); });
+    } catch (e) { wakeLock = null; }
+    render();
+  }
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && $('trip').classList.contains('on')) { keepAwake(); render(); }
+  });
+  document.addEventListener('click', () => { if ($('trip').classList.contains('on')) keepAwake(); });
+  setInterval(() => { if ($('trip').classList.contains('on')) render(); }, 30000);
+
+  /* ---------------- location help ---------------- */
+  function showHelp() { $('help').classList.add('on'); }
+  function hideHelp() { $('help').classList.remove('on'); }
+  $('retryBtn').addEventListener('click', () => {
+    hideHelp();
+    if (S && S.coords && $('trip').classList.contains('on')) { stopWatch(); startWatch(); }
+    else if ($('setup').classList.contains('on')) $('hereBtn').click();
+  });
+
+  /* ---------------- buttons ---------------- */
+  $('hereBtn').addEventListener('click', async () => {
+    const b = $('hereBtn');
+    b.disabled = true; b.textContent = 'Finding you…';
+    try {
+      const p = await currentPosition();
+      $('fromIn').value = p.lat.toFixed(5) + ', ' + p.lon.toFixed(5);
+      setupError('');
+    } catch (e) {
+      if (e && e.code === 1) showHelp();
+      else setupError('Couldn’t get your location. Type a start address instead.');
+    } finally { b.disabled = false; b.textContent = '📍 Use my current location'; }
+  });
+  $('goBtn').addEventListener('click', () => startTrip($('fromIn').value, $('toIn').value));
+  $('toIn').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('goBtn').click(); });
+  $('newBtn').addEventListener('click', () => {
+    if (!confirm('End this trip and start a new one?')) return;
+    stopWatch();
+    try { localStorage.removeItem(KEY); } catch (e) {}
+    S = null; lastFix = null; lastMsg = '';
+    showSetup();
+  });
+
+  /* ---------------- boot ---------------- */
+  // Trip comes from the URL hash (never stored in the page itself), e.g.
+  //   #from=123+Main+St+Town+ST&to=456+Oak+Ave+City+ST&fromName=Town&toName=City
+  // It's saved to localStorage and the hash is cleared from the address bar.
+  function readHash() {
+    if (!location.hash || location.hash.length < 2) return null;
+    const p = new URLSearchParams(location.hash.slice(1));
+    history.replaceState(null, '', location.pathname + location.search);
+    const to = (p.get('to') || '').trim();
+    if (!to) return null;
+    return { from: (p.get('from') || '').trim(), to, fromName: (p.get('fromName') || '').trim(), toName: (p.get('toName') || '').trim() };
+  }
+
+  const h = readHash();
+  if (h && !(S && S.coords && S.from === h.from && S.to === h.to)) {
+    startTrip(h.from, h.to, h.fromName, h.toName);   // new trip from the link
+  } else if (S && S.coords) {
+    if (h && h.fromName) S.fromName = h.fromName;
+    if (h && h.toName) S.toName = h.toName;
+    showTrip();                                         // resume saved trip
+  } else {
+    showSetup();
+  }
+})();
+</script>
+</body>
+</html>
